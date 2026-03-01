@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Mic, Square, ChevronDown, Check } from "lucide-react";
+import { Mic, Square, ChevronDown, Check, X } from "lucide-react";
 import { VoiceOrb } from "@/components/voice-orb";
 import { ListeningStatus } from "@/components/listening-status";
 import type { StatusMode } from "@/components/listening-status";
@@ -73,6 +73,16 @@ export default function CoachPage() {
     silenceTimerRef.current = setTimeout(() => {
       recognitionRef.current?.stop();
     }, 4000);
+  }, []);
+
+  const stopPlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    setTranscript("");
+    setStatus("idle");
   }, []);
 
   const sendToBackend = useCallback(
@@ -237,7 +247,6 @@ export default function CoachPage() {
     }
     if (!selectedBoard) return;
 
-    // Lock the board once the user starts talking
     setIsLocked(true);
     startAudioAnalyzer();
 
@@ -307,6 +316,8 @@ export default function CoachPage() {
 
   const orbMode: "idle" | "listening" | "processing" | "speaking" =
     status === "playing" ? "speaking" : status;
+
+  const isResponding = status === "playing" || status === "processing";
 
   // ── Board selection overlay ──────────────────────────────────────────
   if (!selectedBoard) {
@@ -385,7 +396,6 @@ export default function CoachPage() {
 
           {dropdownOpen && !isLocked && (
             <>
-              {/* Backdrop to close */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
@@ -429,22 +439,19 @@ export default function CoachPage() {
         </div>
       </div>
 
-      {/* Canvas orb */}
-      <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center">
-        <VoiceOrb audioData={audioData} mode={orbMode} />
-      </div>
-
-      {/* Controls */}
-      <div className="relative -mt-8 z-50 flex flex-col items-center gap-6">
-        <ListeningStatus mode={status} audioData={audioData} />
-
-        <div className="flex flex-col items-center gap-4">
+      {/* Controls — ABOVE the orb */}
+      <div className="relative z-50 mb-4 flex flex-col items-center gap-3">
+        <div className="flex items-center mt-16 gap-3">
+          {/* Mic button */}
           <button
             onClick={isListening ? stopListening : startListening}
+            disabled={isResponding}
             className={`group relative flex h-14 w-14 items-center justify-center rounded-full border transition-all duration-300 ${
-              isListening
-                ? "border-red-500/30 bg-red-500/10 hover:bg-red-500/20"
-                : "border-foreground/10 bg-foreground/5 hover:bg-foreground/10"
+              isResponding
+                ? "cursor-default border-foreground/[0.06] bg-foreground/[0.02] opacity-40"
+                : isListening
+                  ? "border-red-500/30 bg-red-500/10 hover:bg-red-500/20"
+                  : "border-foreground/10 bg-foreground/5 hover:bg-foreground/10"
             }`}
             aria-label={isListening ? "Stop listening" : "Start listening"}
           >
@@ -454,14 +461,36 @@ export default function CoachPage() {
               <Mic className="h-5 w-5 text-foreground/70 transition-colors group-hover:text-foreground/90" />
             )}
           </button>
-          <p className="max-w-[280px] text-center text-xs text-foreground/50">
-            {status === "idle" &&
-              "Tap mic, then speak. Stops after 4s of silence."}
-            {status === "listening" && "Listening…"}
-            {status === "processing" && "Getting advice…"}
-            {status === "playing" && "Playing response…"}
-          </p>
+
+          {/* Stop playback button */}
+          {isResponding && (
+            <button
+              onClick={stopPlayback}
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-red-500/20 bg-red-50 transition-all duration-200 hover:border-red-500/30 hover:bg-red-100 active:scale-95"
+              aria-label="Stop response"
+            >
+              <X className="h-5 w-5 text-red-400" />
+            </button>
+          )}
         </div>
+
+        <p className="max-w-[280px] text-center text-xs text-foreground/50">
+          {status === "idle" &&
+            "Tap mic, then speak. Stops after 4s of silence."}
+          {status === "listening" && "Listening…"}
+          {status === "processing" && "Getting advice…"}
+          {status === "playing" && "Playing response…"}
+        </p>
+      </div>
+
+      {/* Status — below the orb */}
+      <div className="relative z-50 mt-4 flex flex-col items-center">
+        <ListeningStatus mode={status} audioData={audioData} />
+      </div>
+
+      {/* Canvas orb */}
+      <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center">
+        <VoiceOrb audioData={audioData} mode={orbMode} />
       </div>
 
       {/* Transcript */}

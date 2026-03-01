@@ -28,12 +28,12 @@ export function ListeningStatus({ mode, audioData }: ListeningStatusProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex items-center gap-2.5">
-        <span
-          className={`block h-2 w-2 rounded-full ${dotColor} ${mode !== "idle" ? "animate-pulse" : ""}`}
-        />
         <p className="font-sans text-sm tracking-widest text-foreground/60 uppercase">
           {getMessage()}
         </p>
+        <span
+          className={`block h-2 w-2 rounded-full ${dotColor} ${mode !== "idle" ? "animate-pulse" : ""}`}
+        />
       </div>
       {(mode === "listening" || mode === "processing") && (
         <div className="flex items-center gap-[3px]">
