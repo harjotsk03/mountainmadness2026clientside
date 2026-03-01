@@ -39,11 +39,11 @@ export function AppShell({ children, userName = "", userInitials = "?" }: AppShe
           <div className="flex items-center gap-2.5 px-5 py-5 border-b border-zinc-200">
             <div className="h-7 w-7 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm leading-none">
-                H
+                F
               </span>
             </div>
             <span className="text-zinc-900 font-semibold text-sm tracking-tight">
-              Huddle Up
+              ForeSee
             </span>
           </div>
 

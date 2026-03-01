@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Huddle Up",
-  description: "Huddle Up — Track spending, set goals, and get smart insights across all your social circles.",
+  title: "ForeSee",
+  description:
+    "ForeSee — Track spending, set goals, and get smart insights across all your social circles.",
 };
 
 export default function RootLayout({
