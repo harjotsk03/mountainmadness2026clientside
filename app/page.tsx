@@ -31,33 +31,38 @@ interface UserBoard {
   boards: Board;
 }
 
-const typeConfig: Record<string, { icon: typeof Briefcase; gradient: string; badge: string }> = {
+const typeConfig: Record<string, { icon: typeof Briefcase; accent: string; bg: string; text: string }> = {
   work: {
     icon: Briefcase,
-    gradient: "from-blue-500 to-indigo-600",
-    badge: "bg-blue-50 text-blue-700 border-blue-200",
+    accent: "bg-[#1e3a5f]",
+    bg: "bg-[#1e3a5f]/[0.07]",
+    text: "text-[#1e3a5f]",
   },
   personal: {
     icon: Wallet,
-    gradient: "from-violet-500 to-purple-600",
-    badge: "bg-violet-50 text-violet-700 border-violet-200",
+    accent: "bg-[#5b4a8a]",
+    bg: "bg-[#5b4a8a]/[0.07]",
+    text: "text-[#5b4a8a]",
   },
   friend: {
     icon: Users,
-    gradient: "from-emerald-500 to-teal-600",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    accent: "bg-[#4a7c6f]",
+    bg: "bg-[#4a7c6f]/[0.07]",
+    text: "text-[#4a7c6f]",
   },
   spouse: {
     icon: Heart,
-    gradient: "from-pink-500 to-rose-600",
-    badge: "bg-pink-50 text-pink-700 border-pink-200",
+    accent: "bg-[#8b4a5a]",
+    bg: "bg-[#8b4a5a]/[0.07]",
+    text: "text-[#8b4a5a]",
   },
 };
 
 const fallbackConfig = {
   icon: LayoutDashboard,
-  gradient: "from-gray-500 to-slate-600",
-  badge: "bg-gray-50 text-gray-700 border-gray-200",
+  accent: "bg-zinc-600",
+  bg: "bg-zinc-600/[0.07]",
+  text: "text-zinc-600",
 };
 
 function getTypeConfig(type: string) {
@@ -72,7 +77,6 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch user info
       const { data: user } = await supabase
         .from("users")
         .select("first_name, last_name")
@@ -83,7 +87,6 @@ export default function Home() {
         setUserName(`${user.first_name}`);
       }
 
-      // Fetch boards via user_boards join
       const { data, error } = await supabase
         .from("user_boards")
         .select(`
@@ -114,47 +117,46 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-[#FAFAFA]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200/80 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className="bg-white/80 backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-md flex items-center justify-center">
-              <span className="text-white font-bold text-lg leading-none">H</span>
+            <div className="h-8 w-8 bg-zinc-900 rounded-lg flex items-center justify-center">
+              <span className="text-white font-semibold text-sm leading-none">H</span>
             </div>
-            <span className="text-lg font-bold tracking-tight text-gray-900 uppercase">Huddle Up</span>
+            <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Huddle Up</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm font-medium text-gray-500">{userName}</span>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 flex items-center justify-center text-sm font-bold border border-blue-200/50 shadow-sm">
+            <span className="hidden sm:block text-sm text-zinc-400">{userName}</span>
+            <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center text-xs font-semibold ring-1 ring-black/[0.06]">
               {userName?.[0] || "?"}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Page Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Hero section */}
-        <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
-            {userName ? `Hey ${userName} 👋` : "Your Boards"}
+      <main className="max-w-6xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
+        {/* Greeting */}
+        <div className="mb-12">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
+            {userName ? `Welcome back, ${userName}` : "Your Boards"}
           </h1>
-          <p className="mt-2 text-base sm:text-lg text-gray-500 max-w-xl">
-            Track spending, set goals, and get smart insights across all your social circles.
+          <p className="mt-2 text-[15px] text-zinc-400 max-w-lg">
+            Track spending across your social circles and get smarter about your money.
           </p>
         </div>
 
-        {/* Stats bar */}
+        {/* Stats */}
         {!loading && boards.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
             <StatCard label="Total Boards" value={boards.length} />
             <StatCard
               label="With Goals"
               value={boards.filter((b) => b.boards.have_board_goals).length}
             />
             <StatCard
-              label="Work Boards"
+              label="Work"
               value={boards.filter((b) => b.boards.type?.toLowerCase() === "work").length}
             />
             <StatCard
@@ -167,23 +169,23 @@ export default function Home() {
         {/* Board Grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="h-10 w-10 border-[3px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-400 font-medium">Loading your boards...</p>
+            <div className="h-8 w-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
+            <p className="text-sm text-zinc-400">Loading boards…</p>
           </div>
         ) : boards.length === 0 ? (
-          <div className="mt-12 flex flex-col items-center justify-center py-20 px-4">
-            <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center max-w-md w-full flex flex-col items-center gap-5 shadow-sm">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center border border-blue-100/50">
-                <LayoutDashboard className="h-9 w-9 text-blue-400" strokeWidth={1.5} />
+          <div className="mt-12 flex flex-col items-center justify-center py-24 px-4">
+            <div className="bg-white ring-1 ring-black/[0.06] rounded-2xl p-14 text-center max-w-sm w-full flex flex-col items-center gap-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <div className="w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center">
+                <LayoutDashboard className="h-6 w-6 text-zinc-400" strokeWidth={1.5} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900">No boards found</h3>
-              <p className="text-gray-500 leading-relaxed">
+              <h3 className="text-lg font-semibold text-zinc-900">No boards found</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
                 There are no boards linked to this account yet.
               </p>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {boards.map((ub) => {
               const board = ub.boards;
               const config = getTypeConfig(board.type);
@@ -192,49 +194,47 @@ export default function Home() {
                 <button
                   key={board.id}
                   onClick={() => router.push(`/board/${board.id}`)}
-                  className="group bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 text-left cursor-pointer flex flex-col"
+                  className="group bg-white ring-1 ring-black/[0.06] rounded-2xl text-left cursor-pointer flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:ring-black/[0.12] hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] active:scale-[0.98] transition-all duration-200"
                 >
-                  {/* Gradient strip */}
-                  <div className={`h-1.5 bg-gradient-to-r ${config.gradient}`}></div>
-
-                  <div className="p-5 sm:p-6 flex flex-col flex-1">
-                    {/* Top row: icon + type badge */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-sm`}>
-                        <Icon className="h-5 w-5 text-white" strokeWidth={2} />
+                  <div className="p-6 sm:p-7 flex flex-col flex-1">
+                    {/* Icon + Badge */}
+                    <div className="flex items-start justify-between mb-5">
+                      <div className={`w-10 h-10 rounded-xl ${config.bg} flex items-center justify-center`}>
+                        <Icon className={`h-[18px] w-[18px] ${config.text}`} strokeWidth={1.8} />
                       </div>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border capitalize ${config.badge}`}>
+                      <span className={`text-[11px] font-medium px-2.5 py-1 rounded-md ${config.bg} ${config.text} capitalize`}>
                         {board.type}
                       </span>
                     </div>
 
                     {/* Name */}
-                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
+                    <h3 className="text-[16px] font-semibold text-zinc-900 leading-snug tracking-tight">
                       {board.name}
                     </h3>
 
                     {/* Description */}
                     {board.goal_description && (
-                      <p className="text-sm text-gray-500 mt-2 leading-relaxed line-clamp-2">
+                      <p className="text-[13px] text-zinc-400 mt-2 leading-relaxed line-clamp-2">
                         {board.goal_description}
                       </p>
                     )}
 
-                    {/* Spacer */}
-                    <div className="flex-1 min-h-[12px]"></div>
+                    <div className="flex-1 min-h-[16px]"></div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-5 pt-5 border-t border-zinc-100">
                       <div className="flex items-center gap-4">
                         {board.goal_target_amount != null && (
-                          <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                            <Target className="h-3.5 w-3.5 text-gray-400" />
-                            <span className="font-semibold text-gray-700">${board.goal_target_amount.toLocaleString()}</span>
+                          <div className="flex items-center gap-1.5">
+                            <Target className="h-3.5 w-3.5 text-zinc-300" />
+                            <span className="text-sm font-semibold text-zinc-700 tracking-tight tabular-nums">
+                              ${board.goal_target_amount.toLocaleString()}
+                            </span>
                           </div>
                         )}
-                        <span className="text-xs text-gray-400 capitalize">{ub.role}</span>
+                        <span className="text-[11px] text-zinc-400 capitalize font-medium">{ub.role}</span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight className="h-4 w-4 text-zinc-300 group-hover:text-zinc-500 group-hover:translate-x-0.5 transition-all duration-200" />
                     </div>
                   </div>
                 </button>
@@ -249,9 +249,9 @@ export default function Home() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-white border border-gray-200/80 rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs font-medium text-gray-400 mt-1 uppercase tracking-wide">{label}</p>
+    <div className="bg-white ring-1 ring-black/[0.06] rounded-xl px-5 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+      <p className="text-2xl font-semibold text-zinc-900 tracking-tight tabular-nums">{value}</p>
+      <p className="text-[11px] font-medium text-zinc-400 mt-1 uppercase tracking-wider">{label}</p>
     </div>
   );
 }
