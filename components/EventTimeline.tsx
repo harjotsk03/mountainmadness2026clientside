@@ -15,6 +15,7 @@ interface EventRow {
   location: string | null;
   event_type: string | null;
   totalSpent?: number;
+  predicted_amount?: number | null;
 }
 
 interface EventTimelineProps {
@@ -128,32 +129,54 @@ interface SpendPt {
 
 function buildWeeklySpending(events: EventRow[]) {
   const weekCount = Math.ceil(TOTAL_DAYS / 7);
-  const buckets: number[] = new Array(weekCount).fill(0);
 
-  for (const ev of events) {
-    if ((ev.totalSpent ?? 0) <= 0) continue;
-    const idx = Math.floor(
-      daysBetween(START_DATE, new Date(ev.start_time)) / 7,
-    );
-    if (idx >= 0 && idx < weekCount) buckets[idx] += ev.totalSpent!;
-  }
+  const actualBuckets: number[] = new Array(weekCount).fill(0);
+  const predictedBuckets: number[] = new Array(weekCount).fill(0);
 
   const todayWeek = Math.floor(daysBetween(START_DATE, TODAY) / 7);
+
+  for (const ev of events) {
+    const weekIndex = Math.floor(
+      daysBetween(START_DATE, new Date(ev.start_time)) / 7,
+    );
+
+    if (weekIndex < 0 || weekIndex >= weekCount) continue;
+
+    if (weekIndex <= todayWeek) {
+      // Past or current week → actual spend
+      if ((ev.totalSpent ?? 0) > 0) {
+        actualBuckets[weekIndex] += ev.totalSpent!;
+      }
+    } else {
+      // Future → predicted spend
+      if ((ev.predicted_amount ?? 0) > 0) {
+        predictedBuckets[weekIndex] += ev.predicted_amount!;
+      }
+    }
+  }
+
   let maxVal = 0;
 
-  const points: SpendPt[] = buckets.map((val, i) => {
-    if (val > maxVal) maxVal = val;
+  const points: SpendPt[] = [];
+
+  for (let i = 0; i < weekCount; i++) {
     const weekStart = new Date(START_DATE.getTime() + i * 7 * DAY_MS);
-    return {
+
+    const actual = actualBuckets[i];
+    const predicted = predictedBuckets[i];
+
+    maxVal = Math.max(maxVal, actual, predicted);
+
+    points.push({
       x: i * 7 * DAY_W + 3.5 * DAY_W,
-      actual: i <= todayWeek ? val : 0,
-      predicted: i > todayWeek ? val : 0,
+      actual,
+      predicted,
       weekLabel: weekStart.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       }),
-    };
-  });
+    });
+  }
 
   return { points, maxVal: Math.max(maxVal, 50) };
 }
@@ -184,7 +207,7 @@ function SpendingGraph({
   // Build coordinate arrays
   const allCoords = useMemo(() => {
     return points.map((p) => {
-      const val = p.actual > 0 ? p.actual : p.predicted;
+      const val = p.x <= todayX ? p.actual : p.predicted;
       return {
         x: p.x,
         y: yFor(val),
