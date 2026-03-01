@@ -521,15 +521,22 @@ export default function BoardDetailPage() {
                                 {fmtMoney(Number(tx.amount))}
                               </p>
                             </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                            {/* Smart spending suggestions */}
-                            <EventSuggestions eventId={selectedEvent.id} />
-                        </>
-                    )}
-                </SheetContent>
-            </Sheet>
-        </div>
-    );
+              {/* Smart spending suggestions — outside the tx list */}
+              <EventSuggestions eventId={selectedEvent.id} />
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
 }
 
 function FeedSkeleton() {
