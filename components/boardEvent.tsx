@@ -15,6 +15,8 @@ import {
   MapPin,
   ChevronRight,
   ShoppingBag,
+  TrendingUp,
+  Sparkles,
 } from "lucide-react";
 import EventTimeline from "./EventTimeline";
 
@@ -27,6 +29,7 @@ interface EventRow {
   location: string | null;
   event_type: string | null;
   totalSpent?: number;
+  predicted_amount?: number | null;
 }
 
 interface Transaction {
@@ -202,17 +205,48 @@ export default function BoardEvent({
                 {loadingTx ? (
                   <TxSkeleton />
                 ) : transactions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center">
-                      <ShoppingBag
-                        className="h-5 w-5 text-zinc-400"
-                        strokeWidth={1.5}
-                      />
-                    </div>
-                    <p className="text-sm text-zinc-400">
-                      No transactions for this event.
-                    </p>
-                  </div>
+                  (() => {
+                    const isFuture = new Date(selectedEvent.start_time) > new Date();
+                    const hasPrediction = selectedEvent.predicted_amount != null && selectedEvent.predicted_amount > 0;
+
+                    if (isFuture && hasPrediction) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-16 gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex items-center justify-center">
+                            <TrendingUp
+                              className="h-5 w-5 text-indigo-500"
+                              strokeWidth={1.5}
+                            />
+                          </div>
+                          <div className="text-center space-y-1">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                              Predicted Spending
+                            </p>
+                            <p className="text-3xl font-bold tracking-tighter text-zinc-900 tabular-nums">
+                              {fmtMoney(selectedEvent.predicted_amount!)}
+                            </p>
+                          </div>
+                          <p className="text-xs text-zinc-400 text-center max-w-[220px]">
+                            This is an estimate based on similar past events. Actual spending may vary.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center">
+                          <ShoppingBag
+                            className="h-5 w-5 text-zinc-400"
+                            strokeWidth={1.5}
+                          />
+                        </div>
+                        <p className="text-sm text-zinc-400">
+                          No transactions for this event.
+                        </p>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="relative">
                     <div className="absolute left-[5px] top-2 bottom-2 w-px bg-zinc-200" />
