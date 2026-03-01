@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -49,7 +50,6 @@ interface BoardEventOldProps {
   setSheetOpen: (open: boolean) => void;
   transactions: Transaction[];
   loadingTx: boolean;
-  onPredictedAmountChange?: (deduction: number) => void;
 }
 
 const TX_DOTS: Record<string, string> = {
@@ -134,9 +134,15 @@ export default function BoardEvent({
   setSheetOpen,
   transactions,
   loadingTx,
-  onPredictedAmountChange,
 }: BoardEventOldProps) {
+  const [completedSavings, setCompletedSavings] = useState(0);
   console.log(transactions)
+
+  // Compute the adjusted predicted amount
+  const adjustedPredictedAmount = selectedEvent?.predicted_amount != null
+    ? Math.max(0, selectedEvent.predicted_amount - completedSavings)
+    : null;
+
   return (
     <>
       {/* ── Full-width event feed ── */}
@@ -155,7 +161,10 @@ export default function BoardEvent({
         open={sheetOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);
-          if (!open) setSelectedEvent(null);
+          if (!open) {
+            setSelectedEvent(null);
+            setCompletedSavings(0);
+          }
         }}
       >
         <SheetContent
@@ -225,7 +234,7 @@ export default function BoardEvent({
                               Predicted Spending
                             </p>
                             <p className="text-3xl font-bold tracking-tighter text-zinc-900 tabular-nums">
-                              {fmtMoney(selectedEvent.predicted_amount!)}
+                              {fmtMoney(adjustedPredictedAmount ?? 0)}
                             </p>
                           </div>
                           <p className="text-xs text-zinc-400 text-center max-w-[220px]">
@@ -294,7 +303,7 @@ export default function BoardEvent({
               </div>
 
               {/* Smart spending suggestions */}
-              <EventSuggestions eventId={selectedEvent.id} onPredictedAmountChange={onPredictedAmountChange} />
+              <EventSuggestions eventId={selectedEvent.id} onCompletedSavingsChange={setCompletedSavings} />
             </>
           )}
         </SheetContent>
