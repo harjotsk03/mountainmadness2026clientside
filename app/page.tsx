@@ -134,7 +134,6 @@ export default function Home() {
             <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center">
               <LayoutDashboard className="h-5 w-5 text-zinc-400" strokeWidth={1.5} />
             </div>
-            <p className="text-sm text-zinc-500">No {filter === "all" ? "" : filter} boards found.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
