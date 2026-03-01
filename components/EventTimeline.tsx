@@ -686,7 +686,7 @@ export default function EventTimeline({
   }
 
   return (
-    <div className="flex-1 h-[70vh] flex flex-col overflow-hidden rounded-xl bg-[#fafafa]">
+    <div className="flex-1 h-[82.5vh] flex flex-col overflow-hidden rounded-xl bg-[#fafafa]">
       {/* ── Legend ── */}
       <div className="flex items-center justify-between px-6 pt-5 pb-3 shrink-0">
         <h2 className="text-sm font-bold text-zinc-700 tracking-tight">

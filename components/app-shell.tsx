@@ -1,9 +1,17 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Brain, ClipboardList, LayoutDashboard } from "lucide-react";
+import {
+  Brain,
+  ClipboardList,
+  Cog,
+  GitBranch,
+  LayoutDashboard,
+  UserCircle,
+} from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import SidebarCTA from "./SidebarCTA";
 
 interface AppShellProps {
     children: React.ReactNode;
@@ -14,6 +22,9 @@ interface AppShellProps {
 const navItems = [
   { label: "Boards", href: "/", icon: ClipboardList },
   { label: "Coach", href: "/coach", icon: Brain },
+  { label: "Integrations", href: "/integrations", icon: GitBranch },
+  { label: "Account", href: "/account", icon: UserCircle },
+  { label: "Settings", href: "/settings", icon: Cog },
 ];
 
 export function AppShell({ children, userName = "", userInitials = "?" }: AppShellProps) {
@@ -59,7 +70,7 @@ export function AppShell({ children, userName = "", userInitials = "?" }: AppShe
             })}
           </nav>
 
-          {/* User at bottom */}
+          <SidebarCTA />
           <div className="px-3 py-4 border-t border-zinc-200">
             <div className="flex items-center gap-2.5 px-2 py-2 rounded-md">
               <Avatar>

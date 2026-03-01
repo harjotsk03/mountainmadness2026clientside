@@ -11,7 +11,8 @@ import {
   LayoutDashboard,
   ChevronRight,
   Target,
-
+  MoreHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,70 @@ const TYPE_META: Record<
     dot: "bg-orange-500",
   },
 };
-const FALLBACK = { icon: LayoutDashboard, bg: "bg-zinc-100", text: "text-zinc-500", dot: "bg-zinc-400" };
+const FALLBACK = {
+  icon: LayoutDashboard,
+  bg: "bg-zinc-100",
+  text: "text-zinc-500",
+  dot: "bg-zinc-400",
+};
+
+/* ── Avatar mappings per board type ── */
+const ME_AVATAR =
+  "https://media.licdn.com/dms/image/v2/D5603AQEHxze-eoyfPw/profile-displayphoto-scale_200_200/B56ZvYbxGrIQAc-/0/1768862719531?e=1773878400&v=beta&t=buq20infh1VO48BJsHy-JJnkLeLhDOnfZhdidPQwOss";
+
+const BOARD_AVATARS: Record<string, string[]> = {
+  partner: [
+    ME_AVATAR,
+    "https://media.licdn.com/dms/image/v2/D5603AQE1HGEBKNf2Tg/profile-displayphoto-scale_200_200/B56Zv5PSVaK4Ac-/0/1769413093351?e=1773878400&v=beta&t=xrPAu6hJ01w2bTyAIxqA6D__OXDMA_31bbyqGAFIPNo",
+  ],
+  friend: [
+    ME_AVATAR,
+    "https://media.licdn.com/dms/image/v2/D5603AQEkcuXVGqvzvw/profile-displayphoto-scale_200_200/B56ZmEOuGMKEAY-/0/1758860077114?e=1773878400&v=beta&t=_6LF9zi4tBnntccErsOQV-wWFKiLXZKoE91AfVL2FZM",
+    "https://media.licdn.com/dms/image/v2/D5603AQEX3ACtLO1h1A/profile-displayphoto-scale_200_200/B56Zxt9OM1HUAY-/0/1771371293568?e=1773878400&v=beta&t=n8dyBNA25GG_yZNM7yyQlCz75SFfRgEypBcoqzb_fZU",
+  ],
+  work: [
+    ME_AVATAR,
+    "https://media.licdn.com/dms/image/v2/D5603AQGvo327N6sDzA/profile-displayphoto-scale_200_200/B56ZrKAbuMJUAY-/0/1764325703175?e=1773878400&v=beta&t=hNdA8bZrYkEq6RT-OuDB9TRmXohxegqHiag0bdu8YI4",
+    "https://media.licdn.com/dms/image/v2/D4E03AQH2_p6g_hD8tw/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1724530876181?e=1773878400&v=beta&t=G1J2NBtE1atRcmHcbKt7wLwKnYYQN4uAuKcbk939bi4",
+    "https://media.licdn.com/dms/image/v2/D5603AQENN_lZbzF9KQ/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1709925886921?e=1773878400&v=beta&t=tuew0hIAhzJl-_ZPShac_D0bAHUl_-0HgftgsmmRK7M",
+    "https://media.licdn.com/dms/image/v2/D5603AQHj_itCgQ9I4Q/profile-displayphoto-scale_200_200/B56ZtPvl_TG4Ac-/0/1766569436779?e=1773878400&v=beta&t=TvQm_zmSJtOZQyxUxhykfTKQfaSI4bT8VLM2CLjv-Bs",
+  ],
+  personal: [ME_AVATAR],
+};
+
+const MAX_VISIBLE_AVATARS = 4;
+
+function getAvatarsForType(type: string): string[] {
+  const key = type?.toLowerCase();
+  return BOARD_AVATARS[key] ?? [ME_AVATAR];
+}
+
+function AvatarStack({ avatars }: { avatars: string[] }) {
+  const visible = avatars.slice(0, MAX_VISIBLE_AVATARS);
+  const overflow = avatars.length - MAX_VISIBLE_AVATARS;
+
+  return (
+    <div className="flex items-center -space-x-2">
+      {visible.map((url, i) => (
+        <img
+          key={i}
+          src={url}
+          alt=""
+          className="w-7 h-7 rounded-full object-cover ring-2 ring-white"
+          style={{ zIndex: visible.length - i }}
+        />
+      ))}
+      {overflow > 0 && (
+        <span
+          className="w-7 h-7 rounded-full bg-zinc-100 ring-2 ring-white flex items-center justify-center text-[10px] font-semibold text-zinc-500"
+          style={{ zIndex: 0 }}
+        >
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Alias so DB value "partner" (or "Partner") uses spouse theme
 const TYPE_ALIASES: Record<string, string> = { partner: "spouse" };
@@ -101,8 +165,10 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("user_boards")
-        .select(`role, board_id,
-          boards (id, name, type, have_board_goals, goal_description, goal_target_amount)`)
+        .select(
+          `role, board_id,
+          boards (id, name, type, have_board_goals, goal_description, goal_target_amount)`,
+        )
         .eq("user_id", USER_ID);
       if (!error && data) setBoards(data as unknown as UserBoard[]);
       setLoading(false);
@@ -110,7 +176,7 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const goalBoards = boards.filter(b => b.boards.have_board_goals).length;
+  const goalBoards = boards.filter((b) => b.boards.have_board_goals).length;
 
   return (
     <div className="min-h-full">
@@ -163,59 +229,35 @@ export default function Home() {
               const meta = typeMeta(b.type);
               const Icon = meta.icon;
               const pct = b.goal_target_amount ? hashProgress(b.id) : null;
+              const avatars = getAvatarsForType(b.type);
 
               return (
                 <Card
                   key={b.id}
                   onClick={() => router.push(`/board/${b.id}`)}
-                  className="group cursor-pointer min-h-56 w-full min-w-0 bg-white border-zinc-200/80 hover:border-zinc-300 transition-all duration-200 active:scale-[0.98] gap-0 py-0 overflow-hidden"
+                  className="group cursor-pointer min-h-44 w-full min-w-0 bg-white border-zinc-200/80 hover:border-blue-400 transition-all duration-300 ease-in-out active:scale-[0.98] gap-0 py-0 overflow-hidden"
                 >
-                  {/* Card top stripe */}
-                  <div className={cn("h-1 w-full bg-blue-400")} />
-
                   <CardContent className="p-5 justify-between flex flex-col h-full">
-                    <div>
-                      {/* Header row */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div
-                          className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center bg-blue-400/15",
-                          )}
-                        >
-                          <Icon
-                            className={cn("h-5 w-5 text-blue-400")}
-                            strokeWidth={1.8}
-                          />
-                        </div>
-                        {/* <Badge
-                          variant="outline"
-                          className="text-[10px] capitalize font-normal text-zinc-500 border-zinc-200"
-                        >
-                          {ub.role}
-                        </Badge> */}
+                    <div className="w-full gap-2 flex flex-row justify-between items-start">
+                      <div>
+                        {/* Name + desc */}
+                        <h3 className="font-bold text-lg text-zinc-900 tracking-tight transition-all duration-300 ease-in-out leading-snug">
+                          {b.name}
+                        </h3>
+                        {b.goal_description && (
+                          <p className="text-sm text-zinc-400 mt-1 leading-relaxed line-clamp-2">
+                            {b.goal_description}
+                          </p>
+                        )}
                       </div>
-
-                      {/* Name + desc */}
-                      <h3 className="font-bold text-lg text-zinc-900 tracking-tight group-hover:text-blue-400 transition-all duration-300 ease-in-out leading-snug">
-                        {b.name}
-                      </h3>
-                      {b.goal_description && (
-                        <p className="text-sm text-zinc-400 mt-1 leading-relaxed line-clamp-2">
-                          {b.goal_description}
-                        </p>
-                      )}
+                      <div>
+                        <MoreHorizontal size={18} />
+                      </div>
                     </div>
-
                     {/* Footer */}
                     <div className="flex items-center justify-between mt-full pt-4 border-t border-zinc-100">
-                      <Badge
-                        className={cn(
-                          "text-[10px] capitalize border-0 font-semibold text-blue-500 bg-blue-400/10 px-2.5 py-1",
-                        )}
-                      >
-                        {b.type}
-                      </Badge>
-                      <ChevronRight className="h-3.5 w-3.5 text-zinc-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all duration-150" />
+                      <AvatarStack avatars={avatars} />
+                      <ChevronRight className="h-3.5 w-3.5 text-zinc-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all duration-150" />
                     </div>
                   </CardContent>
                 </Card>
