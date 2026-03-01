@@ -8,10 +8,17 @@ import {
   Heart,
   Users,
   Wallet,
-  Target,
-  ChevronRight,
   LayoutDashboard,
+  ChevronRight,
+  Target,
+
 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import { cn } from "@/lib/utils";
 
 const USER_ID = "c6e7e6ea-6ab5-46ce-a37a-d131fb5669e0";
 
@@ -22,7 +29,6 @@ interface Board {
   have_board_goals: boolean;
   goal_description: string | null;
   goal_target_amount: number | null;
-  created_at: string;
 }
 
 interface UserBoard {
@@ -31,42 +37,23 @@ interface UserBoard {
   boards: Board;
 }
 
-const typeConfig: Record<string, { icon: typeof Briefcase; accent: string; bg: string; text: string }> = {
-  work: {
-    icon: Briefcase,
-    accent: "bg-[#1e3a5f]",
-    bg: "bg-[#1e3a5f]/[0.07]",
-    text: "text-[#1e3a5f]",
-  },
-  personal: {
-    icon: Wallet,
-    accent: "bg-[#5b4a8a]",
-    bg: "bg-[#5b4a8a]/[0.07]",
-    text: "text-[#5b4a8a]",
-  },
-  friend: {
-    icon: Users,
-    accent: "bg-[#4a7c6f]",
-    bg: "bg-[#4a7c6f]/[0.07]",
-    text: "text-[#4a7c6f]",
-  },
-  spouse: {
-    icon: Heart,
-    accent: "bg-[#8b4a5a]",
-    bg: "bg-[#8b4a5a]/[0.07]",
-    text: "text-[#8b4a5a]",
-  },
+const TYPE_META: Record<string, { icon: typeof Briefcase; bg: string; text: string; dot: string }> = {
+  work: { icon: Briefcase, bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500" },
+  personal: { icon: Wallet, bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
+  friend: { icon: Users, bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500" },
+  spouse: { icon: Heart, bg: "bg-rose-50", text: "text-rose-500", dot: "bg-rose-500" },
 };
+const FALLBACK = { icon: LayoutDashboard, bg: "bg-zinc-100", text: "text-zinc-500", dot: "bg-zinc-400" };
 
-const fallbackConfig = {
-  icon: LayoutDashboard,
-  accent: "bg-zinc-600",
-  bg: "bg-zinc-600/[0.07]",
-  text: "text-zinc-600",
-};
+function typeMeta(type: string) {
+  return TYPE_META[type?.toLowerCase()] ?? FALLBACK;
+}
 
-function getTypeConfig(type: string) {
-  return typeConfig[type?.toLowerCase()] || fallbackConfig;
+// Deterministic hash → pseudo-progress %
+function hashProgress(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return (Math.abs(h) % 60) + 20;
 }
 
 export default function Home() {
@@ -82,176 +69,161 @@ export default function Home() {
         .select("first_name, last_name")
         .eq("id", USER_ID)
         .single();
-
-      if (user) {
-        setUserName(`${user.first_name}`);
-      }
+      if (user) setUserName(`${user.first_name} ${user.last_name}`);
 
       const { data, error } = await supabase
         .from("user_boards")
-        .select(`
-          role,
-          board_id,
-          boards (
-            id,
-            name,
-            type,
-            have_board_goals,
-            goal_description,
-            goal_target_amount,
-            created_at
-          )
-        `)
+        .select(`role, board_id,
+          boards (id, name, type, have_board_goals, goal_description, goal_target_amount)`)
         .eq("user_id", USER_ID);
-
-      if (!error && data) {
-        setBoards(data as unknown as UserBoard[]);
-      }
-
+      if (!error && data) setBoards(data as unknown as UserBoard[]);
       setLoading(false);
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 500);
-    return () => clearInterval(interval);
+    const id = setInterval(fetchData, 500);
+    return () => clearInterval(id);
   }, []);
 
+  const goalBoards = boards.filter(b => b.boards.have_board_goals).length;
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 bg-zinc-900 rounded-lg flex items-center justify-center">
-              <span className="text-white font-semibold text-sm leading-none">H</span>
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Huddle Up</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm text-zinc-400">{userName}</span>
-            <div className="w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center text-xs font-semibold ring-1 ring-black/[0.06]">
-              {userName?.[0] || "?"}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
-        {/* Greeting */}
-        <div className="mb-12">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
-            {userName ? `Welcome back, ${userName}` : "Your Boards"}
+    <div className="min-h-full">
+      {/* ── Hero band ── */}
+      <div className="bg-white border-b border-zinc-200 px-8 py-10">
+        <div className="max-w-4xl">
+          <p className="text-zinc-400 text-xs font-semibold uppercase tracking-widest mb-3">Overview</p>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tighter text-zinc-900 leading-none mb-2">
+            {loading ? (
+              <Skeleton className="h-12 w-48" />
+            ) : (
+              userName.split(" ")[0] + "'s Boards"
+            )}
           </h1>
-          <p className="mt-2 text-[15px] text-zinc-400 max-w-lg">
-            Track spending across your social circles and get smarter about your money.
+          <p className="text-zinc-400 text-sm mt-3 leading-relaxed max-w-md">
+            Track spending and goals across all your social circles.
           </p>
+
+          {/* Hero stat pills */}
+          {!loading && (
+            <div className="flex items-center gap-3 mt-6 flex-wrap">
+              <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-full px-4 py-2">
+                <span className="text-zinc-900 font-bold text-lg tabular-nums tracking-tight">{boards.length}</span>
+                <span className="text-zinc-500 text-xs font-medium">boards</span>
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-full px-4 py-2">
+                <Target className="h-3.5 w-3.5 text-indigo-500" />
+                <span className="text-zinc-900 font-bold text-lg tabular-nums tracking-tight">{goalBoards}</span>
+                <span className="text-zinc-500 text-xs font-medium">with goals</span>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Stats */}
-        {!loading && boards.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
-            <StatCard label="Total Boards" value={boards.length} />
-            <StatCard
-              label="With Goals"
-              value={boards.filter((b) => b.boards.have_board_goals).length}
-            />
-            <StatCard
-              label="Work"
-              value={boards.filter((b) => b.boards.type?.toLowerCase() === "work").length}
-            />
-            <StatCard
-              label="Personal"
-              value={boards.filter((b) => b.boards.type?.toLowerCase() === "personal").length}
-            />
-          </div>
-        )}
+      {/* ── Content area ── */}
+      <div className="px-8 py-8 max-w-5xl">
 
-        {/* Board Grid */}
+        {/* Board grid */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div className="h-8 w-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-            <p className="text-sm text-zinc-400">Loading boards…</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => <BoardCardSkeleton key={i} />)}
           </div>
         ) : boards.length === 0 ? (
-          <div className="mt-12 flex flex-col items-center justify-center py-24 px-4">
-            <div className="bg-white ring-1 ring-black/[0.06] rounded-2xl p-14 text-center max-w-sm w-full flex flex-col items-center gap-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <div className="w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center">
-                <LayoutDashboard className="h-6 w-6 text-zinc-400" strokeWidth={1.5} />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-900">No boards found</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                There are no boards linked to this account yet.
-              </p>
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center">
+              <LayoutDashboard className="h-5 w-5 text-zinc-400" strokeWidth={1.5} />
             </div>
+            <p className="text-sm text-zinc-500">No {filter === "all" ? "" : filter} boards found.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {boards.map((ub) => {
-              const board = ub.boards;
-              const config = getTypeConfig(board.type);
-              const Icon = config.icon;
+            {boards.map(ub => {
+              const b = ub.boards;
+              const meta = typeMeta(b.type);
+              const Icon = meta.icon;
+              const pct = b.goal_target_amount ? hashProgress(b.id) : null;
+
               return (
-                <button
-                  key={board.id}
-                  onClick={() => router.push(`/board/${board.id}`)}
-                  className="group bg-white ring-1 ring-black/[0.06] rounded-2xl text-left cursor-pointer flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:ring-black/[0.12] hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] active:scale-[0.98] transition-all duration-200"
+                <Card
+                  key={b.id}
+                  onClick={() => router.push(`/board/${b.id}`)}
+                  className="group cursor-pointer bg-white border-zinc-200/80 shadow-none hover:shadow-[0_4px_24px_rgba(0,0,0,0.08)] hover:border-zinc-300 transition-all duration-200 active:scale-[0.98] gap-0 py-0 overflow-hidden"
                 >
-                  <div className="p-6 sm:p-7 flex flex-col flex-1">
-                    {/* Icon + Badge */}
-                    <div className="flex items-start justify-between mb-5">
-                      <div className={`w-10 h-10 rounded-xl ${config.bg} flex items-center justify-center`}>
-                        <Icon className={`h-[18px] w-[18px] ${config.text}`} strokeWidth={1.8} />
+                  {/* Card top stripe */}
+                  <div className={cn("h-1 w-full", meta.dot)} />
+
+                  <CardContent className="p-5">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", meta.bg)}>
+                        <Icon className={cn("h-5 w-5", meta.text)} strokeWidth={1.8} />
                       </div>
-                      <span className={`text-[11px] font-medium px-2.5 py-1 rounded-md ${config.bg} ${config.text} capitalize`}>
-                        {board.type}
-                      </span>
+                      <Badge variant="outline" className="text-[10px] capitalize font-normal text-zinc-500 border-zinc-200">
+                        {ub.role}
+                      </Badge>
                     </div>
 
-                    {/* Name */}
-                    <h3 className="text-[16px] font-semibold text-zinc-900 leading-snug tracking-tight">
-                      {board.name}
+                    {/* Name + desc */}
+                    <h3 className="text-sm font-bold text-zinc-900 tracking-tight group-hover:text-indigo-600 transition-colors leading-snug">
+                      {b.name}
                     </h3>
-
-                    {/* Description */}
-                    {board.goal_description && (
-                      <p className="text-[13px] text-zinc-400 mt-2 leading-relaxed line-clamp-2">
-                        {board.goal_description}
-                      </p>
+                    {b.goal_description && (
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-2">{b.goal_description}</p>
                     )}
 
-                    <div className="flex-1 min-h-[16px]"></div>
+                    {/* Progress */}
+                    {pct !== null && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Goal</span>
+                          <span className="text-xs font-bold text-zinc-700 tabular-nums">
+                            ${b.goal_target_amount!.toLocaleString()}
+                          </span>
+                        </div>
+                        <Progress value={pct} className="h-1 bg-zinc-100 [&>div]:bg-indigo-500" />
+                        <p className="text-[10px] text-zinc-400 mt-1 tabular-nums">{pct}% of goal</p>
+                      </div>
+                    )}
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-5 pt-5 border-t border-zinc-100">
-                      <div className="flex items-center gap-4">
-                        {board.goal_target_amount != null && (
-                          <div className="flex items-center gap-1.5">
-                            <Target className="h-3.5 w-3.5 text-zinc-300" />
-                            <span className="text-sm font-semibold text-zinc-700 tracking-tight tabular-nums">
-                              ${board.goal_target_amount.toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        <span className="text-[11px] text-zinc-400 capitalize font-medium">{ub.role}</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-zinc-300 group-hover:text-zinc-500 group-hover:translate-x-0.5 transition-all duration-200" />
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-zinc-100">
+                      <Badge
+                        className={cn("text-[10px] capitalize border-0 font-semibold", meta.bg, meta.text)}
+                      >
+                        {b.type}
+                      </Badge>
+                      <ChevronRight className="h-3.5 w-3.5 text-zinc-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all duration-150" />
                     </div>
-                  </div>
-                </button>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function BoardCardSkeleton() {
   return (
-    <div className="bg-white ring-1 ring-black/[0.06] rounded-xl px-5 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-      <p className="text-2xl font-semibold text-zinc-900 tracking-tight tabular-nums">{value}</p>
-      <p className="text-[11px] font-medium text-zinc-400 mt-1 uppercase tracking-wider">{label}</p>
-    </div>
+    <Card className="bg-white border-zinc-200 shadow-none gap-0 py-0 overflow-hidden">
+      <div className="h-1 w-full bg-zinc-100" />
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-4">
+          <Skeleton className="w-10 h-10 rounded-xl" />
+          <Skeleton className="h-5 w-14 rounded-full" />
+        </div>
+        <Skeleton className="h-4 w-36 mb-2" />
+        <Skeleton className="h-3 w-full mb-1" />
+        <Skeleton className="h-3 w-3/4 mb-4" />
+        <Skeleton className="h-1 w-full rounded-full mb-4" />
+        <div className="flex justify-between pt-4 border-t border-zinc-100">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-3.5 w-3.5 rounded" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

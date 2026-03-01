@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AppShell } from "@/components/app-shell";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,11 +26,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} ${geistMono.variable} antialiased`}
-        style={{ fontFamily: "var(--font-inter), system-ui, -apple-system, sans-serif" }}
-      >
-        {children}
+      <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
