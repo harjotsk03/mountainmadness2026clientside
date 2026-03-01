@@ -23,7 +23,7 @@ interface Suggestion {
 
 interface EventSuggestionsProps {
     eventId: string;
-    onPredictedAmountChange?: (deduction: number) => void;
+    onCompletedSavingsChange?: (totalSavings: number) => void;
 }
 
 /* ── Confetti burst helper ── */
@@ -52,10 +52,18 @@ function blastConfetti() {
 /* ═══════════════════════════════════════════
    EventSuggestions — renders inside the Sheet
    ═══════════════════════════════════════════ */
-export function EventSuggestions({ eventId, onPredictedAmountChange }: EventSuggestionsProps) {
+export function EventSuggestions({ eventId, onCompletedSavingsChange }: EventSuggestionsProps) {
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [votingIds, setVotingIds] = useState<Set<number>>(new Set());
+
+    /* ── Compute total savings from all completed suggestions ── */
+    const computeCompletedSavings = (items: Suggestion[]) => {
+        const total = items
+            .filter(s => s.is_completed)
+            .reduce((sum, s) => sum + ((s.potential_savings ?? 0) / 2), 0);
+        onCompletedSavingsChange?.(total);
+    };
 
     /* ── Fetch suggestions for this event ── */
     useEffect(() => {
@@ -69,6 +77,7 @@ export function EventSuggestions({ eventId, onPredictedAmountChange }: EventSugg
                 .order("votes", { ascending: false });
             if (!cancelled && data) {
                 setSuggestions(data);
+                computeCompletedSavings(data);
                 setLoading(false);
             }
         };
@@ -84,7 +93,10 @@ export function EventSuggestions({ eventId, onPredictedAmountChange }: EventSugg
             .eq("event_id", eventId)
             .order("is_completed", { ascending: true })
             .order("votes", { ascending: false });
-        if (data) setSuggestions(data);
+        if (data) {
+            setSuggestions(data);
+            computeCompletedSavings(data);
+        }
     };
 
     /* ── Vote handler ── */
@@ -111,22 +123,6 @@ export function EventSuggestions({ eventId, onPredictedAmountChange }: EventSugg
             updates.confetti_shown = true;
         }
         await supabase.from("suggestions").update(updates).eq("id", s.id);
-
-        // Deduct half of potential_savings from event's predicted_amount
-        if (justCompleted && s.potential_savings != null && s.potential_savings > 0) {
-            const deduction = s.potential_savings / 2;
-            // Fetch current predicted_amount, then update
-            const { data: eventData } = await supabase
-                .from("events")
-                .select("predicted_amount")
-                .eq("id", eventId)
-                .single();
-            if (eventData?.predicted_amount != null) {
-                const newAmount = Math.max(0, eventData.predicted_amount - deduction);
-                await supabase.from("events").update({ predicted_amount: newAmount }).eq("id", eventId);
-                onPredictedAmountChange?.(deduction);
-            }
-        }
 
         // Confetti!
         if (justCompleted) blastConfetti();

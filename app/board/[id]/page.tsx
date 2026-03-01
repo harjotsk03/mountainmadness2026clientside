@@ -281,21 +281,6 @@ export default function BoardDetailPage() {
         setSheetOpen={setSheetOpen}
         transactions={transactions}
         loadingTx={loadingTx}
-        onPredictedAmountChange={(deduction) => {
-          // Update selectedEvent's predicted_amount
-          if (selectedEvent) {
-            const newAmount = Math.max(0, (selectedEvent.predicted_amount ?? 0) - deduction);
-            setSelectedEvent({ ...selectedEvent, predicted_amount: newAmount });
-          }
-          // Update events array so the feed also stays in sync
-          setEvents(prev =>
-            prev.map(ev =>
-              ev.id === selectedEvent?.id
-                ? { ...ev, predicted_amount: Math.max(0, (ev.predicted_amount ?? 0) - deduction) }
-                : ev
-            )
-          );
-        }}
       />
     </div>
   );
