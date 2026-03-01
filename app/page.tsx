@@ -109,6 +109,8 @@ export default function Home() {
     };
 
     fetchData();
+    const interval = setInterval(fetchData, 500);
+    return () => clearInterval(interval);
   }, []);
 
   return (

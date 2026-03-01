@@ -20,7 +20,7 @@ import {
     LayoutDashboard,
 } from "lucide-react";
 
-/* ─── Types ───────────────────────────────────────── */
+
 interface Board {
     id: string;
     name: string;
@@ -48,7 +48,6 @@ interface Transaction {
     transaction_date: string;
 }
 
-/* ─── Helpers ─────────────────────────────────────── */
 const typeConfig: Record<string, { icon: typeof Briefcase; gradient: string; accentText: string }> = {
     work: { icon: Briefcase, gradient: "from-blue-500 to-indigo-600", accentText: "text-blue-600" },
     personal: { icon: Wallet, gradient: "from-violet-500 to-purple-600", accentText: "text-violet-600" },
@@ -90,7 +89,6 @@ function getCategoryStyle(cat: string | null) {
     return categoryColors[cat.toLowerCase()] || "bg-gray-50 text-gray-600 border-gray-200";
 }
 
-/* ─── Page Component ──────────────────────────────── */
 export default function BoardDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -153,23 +151,50 @@ export default function BoardDetailPage() {
             setLoading(false);
         };
 
+        // Initial fetch
         fetchBoardData();
+
+        // Polling every 500ms
+        const intervalId = setInterval(() => {
+            fetchBoardData();
+        }, 500);
+
+        // Cleanup interval on unmount
+        return () => clearInterval(intervalId);
     }, [boardId]);
 
-    /* Fetch transactions for a selected event */
-    const openEventTransactions = async (event: EventRow) => {
+    /* Handle opening the modal */
+    const openEventTransactions = (event: EventRow) => {
         setSelectedEvent(event);
-        setLoadingTx(true);
-
-        const { data } = await supabase
-            .from("transactions")
-            .select("id, amount, category, merchant, transaction_date")
-            .eq("event_id", event.id)
-            .order("amount", { ascending: false });
-
-        setTransactions(data || []);
-        setLoadingTx(false);
+        setLoadingTx(true); // Show loading state briefly
     };
+
+    /* Fetch transactions for a selected event on a 500ms interval */
+    useEffect(() => {
+        if (!selectedEvent) return;
+
+        const fetchTransactions = async () => {
+            const { data } = await supabase
+                .from("transactions")
+                .select("id, amount, category, merchant, transaction_date")
+                .eq("event_id", selectedEvent.id)
+                .order("amount", { ascending: false });
+
+            setTransactions(data || []);
+            setLoadingTx(false);
+        };
+
+        // Initial fetch
+        fetchTransactions();
+
+        // Polling every 500ms
+        const intervalId = setInterval(() => {
+            fetchTransactions();
+        }, 500);
+
+        // Cleanup interval when modal closes or unmounts
+        return () => clearInterval(intervalId);
+    }, [selectedEvent]);
 
     const config = board ? getTypeConfig(board.type) : fallbackConfig;
     const BoardIcon = config.icon;
