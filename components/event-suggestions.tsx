@@ -23,6 +23,7 @@ interface Suggestion {
 
 interface EventSuggestionsProps {
     eventId: string;
+    onPredictedAmountChange?: (deduction: number) => void;
 }
 
 /* ── Confetti burst helper ── */
@@ -51,7 +52,7 @@ function blastConfetti() {
 /* ═══════════════════════════════════════════
    EventSuggestions — renders inside the Sheet
    ═══════════════════════════════════════════ */
-export function EventSuggestions({ eventId }: EventSuggestionsProps) {
+export function EventSuggestions({ eventId, onPredictedAmountChange }: EventSuggestionsProps) {
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [votingIds, setVotingIds] = useState<Set<number>>(new Set());
@@ -110,6 +111,22 @@ export function EventSuggestions({ eventId }: EventSuggestionsProps) {
             updates.confetti_shown = true;
         }
         await supabase.from("suggestions").update(updates).eq("id", s.id);
+
+        // Deduct half of potential_savings from event's predicted_amount
+        if (justCompleted && s.potential_savings != null && s.potential_savings > 0) {
+            const deduction = s.potential_savings / 2;
+            // Fetch current predicted_amount, then update
+            const { data: eventData } = await supabase
+                .from("events")
+                .select("predicted_amount")
+                .eq("id", eventId)
+                .single();
+            if (eventData?.predicted_amount != null) {
+                const newAmount = Math.max(0, eventData.predicted_amount - deduction);
+                await supabase.from("events").update({ predicted_amount: newAmount }).eq("id", eventId);
+                onPredictedAmountChange?.(deduction);
+            }
+        }
 
         // Confetti!
         if (justCompleted) blastConfetti();

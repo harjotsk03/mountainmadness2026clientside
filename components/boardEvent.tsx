@@ -49,6 +49,7 @@ interface BoardEventOldProps {
   setSheetOpen: (open: boolean) => void;
   transactions: Transaction[];
   loadingTx: boolean;
+  onPredictedAmountChange?: (deduction: number) => void;
 }
 
 const TX_DOTS: Record<string, string> = {
@@ -133,6 +134,7 @@ export default function BoardEvent({
   setSheetOpen,
   transactions,
   loadingTx,
+  onPredictedAmountChange,
 }: BoardEventOldProps) {
   console.log(transactions)
   return (
@@ -292,7 +294,7 @@ export default function BoardEvent({
               </div>
 
               {/* Smart spending suggestions */}
-              <EventSuggestions eventId={selectedEvent.id} />
+              <EventSuggestions eventId={selectedEvent.id} onPredictedAmountChange={onPredictedAmountChange} />
             </>
           )}
         </SheetContent>
