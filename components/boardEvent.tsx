@@ -135,7 +135,7 @@ export default function BoardEvent({
   return (
     <>
       {/* ── Full-width event feed ── */}
-      <div className="flex-1 px-8 py-7 h-[70vh] overflow-y-scroll">
+      <div className="flex-1 px-2 py-2 h-[90vh] overflow-y-scroll">
         <EventTimeline
           events={events}
           onSelectEvent={(ev) => {

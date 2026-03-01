@@ -184,16 +184,6 @@ export default function BoardDetailPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Left — board identity */}
           <div className="flex items-center gap-4">
-            <div
-              className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-blue-400/15",
-              )}
-            >
-              <BoardIcon
-                className={cn("h-6 w-6 text-blue-400")}
-                strokeWidth={1.5}
-              />
-            </div>
             <div>
               {loading ? (
                 <>
@@ -212,72 +202,71 @@ export default function BoardDetailPage() {
                   )}
                 </>
               )}
+              {loading ? (
+                <>
+                  <Skeleton className="h-10 w-24 rounded-xl" />
+                  <Skeleton className="h-10 w-32 rounded-xl" />
+                </>
+              ) : (
+                <div className="flex flex-row mt-4 w-max gap-4">
+                  {/* Events pill */}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                    <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
+                      {events.length}
+                    </span>
+                    <span className="text-zinc-500 text-xs font-medium">
+                      events
+                    </span>
+                  </div>
+
+                  {/* Separator */}
+                  <Separator
+                    orientation="vertical"
+                    className="h-6 bg-zinc-200 hidden lg:block"
+                  />
+
+                  {/* Total pill */}
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
+                      {fmtMoney(totalSpent)}
+                    </span>
+                    <span className="text-zinc-500 text-xs font-medium">
+                      spent
+                    </span>
+                  </div>
+
+                  {/* Goal pill */}
+                  {board?.goal_target_amount != null && goalPct !== null && (
+                    <>
+                      <Separator
+                        orientation="vertical"
+                        className="h-6 bg-zinc-200 hidden lg:block"
+                      />
+                      <div className="flex items-center gap-3 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
+                            {goalPct}%
+                          </span>
+                          <span className="text-zinc-500 text-xs font-medium">
+                            of {fmtMoney(board.goal_target_amount)}
+                          </span>
+                        </div>
+                        <Progress
+                          value={goalPct}
+                          className="h-1.5 w-16 bg-zinc-200 [&>div]:bg-indigo-500"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right — inline summary stats */}
-          <div className="flex items-center gap-3 flex-wrap shrink-0">
-            {loading ? (
-              <>
-                <Skeleton className="h-10 w-24 rounded-xl" />
-                <Skeleton className="h-10 w-32 rounded-xl" />
-              </>
-            ) : (
-              <>
-                {/* Events pill */}
-                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
-                  <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                  <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
-                    {events.length}
-                  </span>
-                  <span className="text-zinc-500 text-xs font-medium">
-                    events
-                  </span>
-                </div>
-
-                {/* Separator */}
-                <Separator
-                  orientation="vertical"
-                  className="h-6 bg-zinc-200 hidden lg:block"
-                />
-
-                {/* Total pill */}
-                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                  <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
-                    {fmtMoney(totalSpent)}
-                  </span>
-                  <span className="text-zinc-500 text-xs font-medium">
-                    spent
-                  </span>
-                </div>
-
-                {/* Goal pill */}
-                {board?.goal_target_amount != null && goalPct !== null && (
-                  <>
-                    <Separator
-                      orientation="vertical"
-                      className="h-6 bg-zinc-200 hidden lg:block"
-                    />
-                    <div className="flex items-center gap-3 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">
-                          {goalPct}%
-                        </span>
-                        <span className="text-zinc-500 text-xs font-medium">
-                          of {fmtMoney(board.goal_target_amount)}
-                        </span>
-                      </div>
-                      <Progress
-                        value={goalPct}
-                        className="h-1.5 w-16 bg-zinc-200 [&>div]:bg-indigo-500"
-                      />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
+          <div className="flex items-center gap-3 flex-wrap shrink-0"></div>
         </div>
       </div>
 
