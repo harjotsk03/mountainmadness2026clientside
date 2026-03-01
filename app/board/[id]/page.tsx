@@ -29,7 +29,7 @@ import {
     SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { EventSuggestions } from "@/components/event-suggestions";
+import BoardEvent from "@/components/boardEvent";
 
 interface Board {
     id: string;
@@ -143,76 +143,8 @@ export default function BoardDetailPage() {
   }, [boardId]);
 
   useEffect(() => {
-    if (!selectedEvent || !sheetOpen) return;
-    let stale = false;
-    const poll = async () => {
-      const { data } = await supabase
-        .from("transactions")
-        .select("id, amount, category, merchant, transaction_date")
-        .eq("event_id", selectedEvent.id)
-        .order("transaction_date", { ascending: true });
-
-      if (stale) return;
-
-      setTransactions((prev) => {
-        const incoming = data || [];
-        if (
-          prev.length === incoming.length &&
-          prev[prev.length - 1]?.id === incoming[incoming.length - 1]?.id
-        ) {
-          return prev;
-        }
-        return incoming;
-      });
-    };
-
-    setLoadingTx(true);
-    poll().then(() => setLoadingTx(false));
-
-    const id = setInterval(poll, 500);
-    return () => {
-      stale = true;
-      clearInterval(id);
-    };
-  }, [selectedEvent, sheetOpen]);
-
-  // useEffect(() => {
-  //   if (!selectedEvent || !sheetOpen) return;
-
-  //   let stale = false;
-
-  //   const poll = async () => {
-  //     const { data } = await supabase
-  //       .from("transactions")
-  //       .select("id, amount, category, merchant, transaction_date")
-  //       .eq("event_id", selectedEvent.id)
-  //       .order("transaction_date", { ascending: true });
-
-  //     if (stale) return;
-
-  //     setTransactions((prev) => {
-  //       const incoming = data || [];
-  //       // Fast path: nothing changed
-  //       if (
-  //         prev.length === incoming.length &&
-  //         prev[prev.length - 1]?.id === incoming[incoming.length - 1]?.id
-  //       ) {
-  //         return prev; // same reference → no re-render
-  //       }
-  //       return incoming;
-  //     });
-  //   };
-
-  //   // Initial fetch with loading state
-  //   setLoadingTx(true);
-  //   poll().then(() => setLoadingTx(false));
-
-  //   const id = setInterval(poll, 500);
-  //   return () => {
-  //     stale = true;
-  //     clearInterval(id);
-  //   };
-  // }, [selectedEvent, sheetOpen]);
+    //
+  }, []);
 
   const meta = board ? typeMeta(board.type) : FALLBACK;
   const BoardIcon = meta.icon;
@@ -336,205 +268,16 @@ export default function BoardDetailPage() {
       </div>
 
       {/* ── Full-width event feed ── */}
-      <div className="flex-1 px-8 py-7 h-[70vh] overflow-y-scroll">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
-            Events
-          </h2>
-          {!loading && (
-            <Badge
-              variant="secondary"
-              className="text-[10px] tabular-nums bg-white border-zinc-200"
-            >
-              {events.length} total
-            </Badge>
-          )}
-        </div>
-
-        {loading ? (
-          <FeedSkeleton />
-        ) : events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-zinc-400" strokeWidth={1.5} />
-            </div>
-            <p className="text-sm text-zinc-500">No events yet.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {events.map((event, idx) => (
-              <button
-                key={event.id}
-                onClick={() => {
-                  setSelectedEvent(event);
-                  setSheetOpen(true);
-                }}
-                className="w-full text-left flex items-center gap-4 px-5 py-4 hover:bg-zinc-50 active:bg-zinc-100 transition-colors group"
-              >
-                {/* Index */}
-                <span className="tabular-nums text-[11px] font-semibold text-zinc-300 w-5 shrink-0 text-right">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <div className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-zinc-900 truncate group-hover:text-indigo-600 transition-colors">
-                    {event.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                      <Calendar className="h-2.5 w-2.5" />
-                      {fmtDate(event.start_time)}
-                    </span>
-                    {event.end_time && (
-                      <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                        <Clock className="h-2.5 w-2.5" />
-                        {fmtTime(event.start_time)}–{fmtTime(event.end_time)}
-                      </span>
-                    )}
-                    {event.location && (
-                      <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                        <MapPin className="h-2.5 w-2.5" />
-                        {event.location}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Amount + arrow */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {event.totalSpent != null && event.totalSpent > 0 && (
-                    <span className="text-sm font-bold text-zinc-900 tabular-nums tracking-tight">
-                      {fmtMoney(event.totalSpent)}
-                    </span>
-                  )}
-                  <ChevronRight className="h-4 w-4 text-zinc-200 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Transaction Sheet ── */}
-      <Sheet
-        open={sheetOpen}
-        onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) setSelectedEvent(null);
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md overflow-y-auto bg-white border-l border-zinc-200"
-        >
-          {selectedEvent && (
-            <>
-              <SheetHeader className="pb-4 border-b border-zinc-100">
-                <SheetTitle className="text-base font-bold tracking-tight text-zinc-900">
-                  {selectedEvent.title}
-                </SheetTitle>
-                <SheetDescription className="flex flex-wrap items-center gap-2 mt-1">
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] font-normal gap-1 border-zinc-200"
-                  >
-                    <Calendar className="h-2.5 w-2.5" />
-                    {fmtDate(selectedEvent.start_time)}
-                  </Badge>
-                  {selectedEvent.location && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] font-normal gap-1 border-zinc-200"
-                    >
-                      <MapPin className="h-2.5 w-2.5" />
-                      {selectedEvent.location}
-                    </Badge>
-                  )}
-                </SheetDescription>
-              </SheetHeader>
-
-              {/* Total */}
-              {!loadingTx && transactions.length > 0 && (
-                <div className="px-4 py-5 bg-zinc-50 border-b border-zinc-100">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">
-                    Total Spent
-                  </p>
-                  <p className="text-3xl font-bold tracking-tighter text-zinc-900 tabular-nums">
-                    {fmtMoney(
-                      transactions.reduce((s, t) => s + Number(t.amount), 0),
-                    )}
-                  </p>
-                </div>
-              )}
-
-              {/* Transaction timeline */}
-              <div className="px-4 py-6">
-                {loadingTx ? (
-                  <TxSkeleton />
-                ) : transactions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center">
-                      <ShoppingBag
-                        className="h-5 w-5 text-zinc-400"
-                        strokeWidth={1.5}
-                      />
-                    </div>
-                    <p className="text-sm text-zinc-400">
-                      No transactions for this event.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute left-[5px] top-2 bottom-2 w-px bg-zinc-200" />
-                    <div className="space-y-0">
-                      {transactions.map((tx) => (
-                        <div
-                          key={tx.id}
-                          className="relative flex gap-4 pb-6 last:pb-0"
-                        >
-                          <div className="relative z-10 pt-0.5">
-                            <div
-                              className={cn(
-                                "w-3 h-3 rounded-full ring-2 ring-white",
-                                txDot(tx.category),
-                              )}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-zinc-900 truncate">
-                                  {tx.merchant || "Unknown merchant"}
-                                </p>
-                                {tx.category && (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] capitalize mt-1 bg-zinc-100 text-zinc-500 border-0"
-                                  >
-                                    {tx.category}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm font-bold text-zinc-900 tabular-nums tracking-tight whitespace-nowrap shrink-0">
-                                {fmtMoney(Number(tx.amount))}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Smart spending suggestions — outside the tx list */}
-              <EventSuggestions eventId={selectedEvent.id} />
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      <BoardEvent
+        loading={loading}
+        events={events}
+        selectedEvent={selectedEvent}
+        setSelectedEvent={setSelectedEvent}
+        sheetOpen={sheetOpen}
+        setSheetOpen={setSheetOpen}
+        transactions={transactions}
+        loadingTx={loadingTx}
+      />
     </div>
   );
 }
