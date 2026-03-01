@@ -48,6 +48,7 @@ interface EventRow {
   location: string | null;
   event_type: string | null;
   totalSpent?: number;
+  predicted_amount?: number | null;
 }
 
 interface Transaction {
@@ -110,7 +111,7 @@ export default function BoardDetailPage() {
       const { data: evRows } = await supabase
         .from("events")
         .select(
-          "id, title, description, start_time, end_time, location, event_type",
+          "id, title, description, start_time, end_time, location, event_type, predicted_amount",
         )
         .eq("board_id", boardId)
         .order("start_time", { ascending: false });
