@@ -3,261 +3,253 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
-import { Loader2 } from "lucide-react";
+import {
+  Briefcase,
+  Heart,
+  Users,
+  Wallet,
+  Target,
+  ChevronRight,
+  LayoutDashboard,
+} from "lucide-react";
+
+const USER_ID = "c6e7e6ea-6ab5-46ce-a37a-d131fb5669e0";
+
+interface Board {
+  id: string;
+  name: string;
+  type: string;
+  have_board_goals: boolean;
+  goal_description: string | null;
+  goal_target_amount: number | null;
+  created_at: string;
+}
+
+interface UserBoard {
+  role: string;
+  board_id: string;
+  boards: Board;
+}
+
+const typeConfig: Record<string, { icon: typeof Briefcase; gradient: string; badge: string }> = {
+  work: {
+    icon: Briefcase,
+    gradient: "from-blue-500 to-indigo-600",
+    badge: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  personal: {
+    icon: Wallet,
+    gradient: "from-violet-500 to-purple-600",
+    badge: "bg-violet-50 text-violet-700 border-violet-200",
+  },
+  friend: {
+    icon: Users,
+    gradient: "from-emerald-500 to-teal-600",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  spouse: {
+    icon: Heart,
+    gradient: "from-pink-500 to-rose-600",
+    badge: "bg-pink-50 text-pink-700 border-pink-200",
+  },
+};
+
+const fallbackConfig = {
+  icon: LayoutDashboard,
+  gradient: "from-gray-500 to-slate-600",
+  badge: "bg-gray-50 text-gray-700 border-gray-200",
+};
+
+function getTypeConfig(type: string) {
+  return typeConfig[type?.toLowerCase()] || fallbackConfig;
+}
 
 export default function Home() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [boards, setBoards] = useState<UserBoard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
-    // Check local storage for existing session
-    const user = localStorage.getItem("huddle_user");
-    if (user) {
-      router.push("/dashboard");
-    }
-  }, [router]);
+    const fetchData = async () => {
+      // Fetch user info
+      const { data: user } = await supabase
+        .from("users")
+        .select("first_name, last_name")
+        .eq("id", USER_ID)
+        .single();
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      if (isLogin) {
-        // Query users table for matching email and password
-        const { data, error: dbError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", email)
-          .eq("password", password)
-          .single();
-
-        if (dbError || !data) {
-          throw new Error("Invalid email or password.");
-        }
-
-        // Store user in localStorage
-        localStorage.setItem("huddle_user", JSON.stringify(data));
-        router.push("/dashboard");
-      } else {
-        // Basic validation
-        if (!firstName || !lastName || !email || !password) {
-          throw new Error("Please fill in all fields.");
-        }
-
-        // Check if user already exists
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle();
-
-        if (existingUser) {
-          throw new Error("An account with this email already exists.");
-        }
-
-        // Insert new user
-        const { data, error: insertError } = await supabase
-          .from("users")
-          .insert([
-            {
-              first_name: firstName,
-              last_name: lastName,
-              email: email,
-              password: password,
-            },
-          ])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error("Insert error:", insertError);
-          throw new Error("Failed to create account. Please try again.");
-        }
-
-        // Store user in localStorage and login
-        localStorage.setItem("huddle_user", JSON.stringify(data));
-        router.push("/dashboard");
+      if (user) {
+        setUserName(`${user.first_name}`);
       }
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred.");
+
+      // Fetch boards via user_boards join
+      const { data, error } = await supabase
+        .from("user_boards")
+        .select(`
+          role,
+          board_id,
+          boards (
+            id,
+            name,
+            type,
+            have_board_goals,
+            goal_description,
+            goal_target_amount,
+            created_at
+          )
+        `)
+        .eq("user_id", USER_ID);
+
+      if (!error && data) {
+        setBoards(data as unknown as UserBoard[]);
       }
-    } finally {
+
       setLoading(false);
-    }
-  };
+    };
+
+    fetchData();
+  }, []);
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
-      {/* Left pane - Form */}
-      <div className="flex w-full flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:w-1/2 lg:px-20 xl:px-24 border-r border-gray-200 bg-white shadow-xl lg:shadow-none z-10 transition-all">
-        <div className="mx-auto w-full max-w-sm lg:w-96">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 bg-blue-600 rounded-lg shadow-sm flex items-center justify-center">
-                <span className="text-white font-bold text-lg leading-none mt-0.5">H</span>
-              </div>
-              <h2 className="text-xl font-extrabold tracking-tight text-gray-900 uppercase">
-                Huddle Up
-              </h2>
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200/80 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-md flex items-center justify-center">
+              <span className="text-white font-bold text-lg leading-none">H</span>
             </div>
-            <h2 className="mt-10 text-3xl font-bold tracking-tight text-gray-900">
-              {isLogin ? "Sign in to your account" : "Create an account"}
-            </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              {isLogin ? "Welcome back! Please enter your details." : "Join us and start collaborating today."}
-            </p>
+            <span className="text-lg font-bold tracking-tight text-gray-900 uppercase">Huddle Up</span>
           </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:block text-sm font-medium text-gray-500">{userName}</span>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 flex items-center justify-center text-sm font-bold border border-blue-200/50 shadow-sm">
+              {userName?.[0] || "?"}
+            </div>
+          </div>
+        </div>
+      </header>
 
-          <div className="mt-8">
-            <form onSubmit={handleAuth} className="space-y-5">
-              {!isLogin && (
-                <div className="flex gap-4">
-                  <div className="w-1/2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="firstName">
-                      First Name
-                    </label>
-                    <input
-                      id="firstName"
-                      type="text"
-                      required
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all bg-white shadow-sm"
-                      placeholder="Jane"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </div>
-                  <div className="w-1/2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="lastName">
-                      Last Name
-                    </label>
-                    <input
-                      id="lastName"
-                      type="text"
-                      required
-                      className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all bg-white shadow-sm"
-                      placeholder="Doe"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
+      {/* Page Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* Hero section */}
+        <div className="mb-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+            {userName ? `Hey ${userName} 👋` : "Your Boards"}
+          </h1>
+          <p className="mt-2 text-base sm:text-lg text-gray-500 max-w-xl">
+            Track spending, set goals, and get smart insights across all your social circles.
+          </p>
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all bg-white shadow-sm"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+        {/* Stats bar */}
+        {!loading && boards.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+            <StatCard label="Total Boards" value={boards.length} />
+            <StatCard
+              label="With Goals"
+              value={boards.filter((b) => b.boards.have_board_goals).length}
+            />
+            <StatCard
+              label="Work Boards"
+              value={boards.filter((b) => b.boards.type?.toLowerCase() === "work").length}
+            />
+            <StatCard
+              label="Personal"
+              value={boards.filter((b) => b.boards.type?.toLowerCase() === "personal").length}
+            />
+          </div>
+        )}
+
+        {/* Board Grid */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <div className="h-10 w-10 border-[3px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-400 font-medium">Loading your boards...</p>
+          </div>
+        ) : boards.length === 0 ? (
+          <div className="mt-12 flex flex-col items-center justify-center py-20 px-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center max-w-md w-full flex flex-col items-center gap-5 shadow-sm">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center border border-blue-100/50">
+                <LayoutDashboard className="h-9 w-9 text-blue-400" strokeWidth={1.5} />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all bg-white shadow-sm"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-lg bg-red-50 p-3 mt-4 border border-red-100">
-                  <p className="text-sm text-red-600 font-medium text-center">{error}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-6 flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-              >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  isLogin ? "Sign in" : "Create account"
-                )}
-              </button>
-            </form>
-
-            <div className="mt-8 text-center bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <p className="text-sm text-gray-600">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                <button
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setError(null);
-                  }}
-                  className="font-semibold text-blue-600 hover:text-blue-500 transition-colors"
-                >
-                  {isLogin ? "Sign up" : "Log in"}
-                </button>
+              <h3 className="text-xl font-bold text-gray-900">No boards found</h3>
+              <p className="text-gray-500 leading-relaxed">
+                There are no boards linked to this account yet.
               </p>
             </div>
           </div>
-        </div>
-      </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {boards.map((ub) => {
+              const board = ub.boards;
+              const config = getTypeConfig(board.type);
+              const Icon = config.icon;
+              return (
+                <button
+                  key={board.id}
+                  onClick={() => router.push(`/board/${board.id}`)}
+                  className="group bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 text-left cursor-pointer flex flex-col"
+                >
+                  {/* Gradient strip */}
+                  <div className={`h-1.5 bg-gradient-to-r ${config.gradient}`}></div>
 
-      {/* Right pane - Decorative Premium Design */}
-      <div className="hidden lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:items-center bg-gradient-to-br from-indigo-50 via-blue-50 to-white relative overflow-hidden">
-        {/* Abstract blur blobs */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30"></div>
-        <div className="absolute top-1/2 -left-24 w-72 h-72 bg-indigo-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30"></div>
-        <div className="absolute -bottom-24 right-20 w-80 h-80 bg-cyan-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30"></div>
+                  <div className="p-5 sm:p-6 flex flex-col flex-1">
+                    {/* Top row: icon + type badge */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-sm`}>
+                        <Icon className="h-5 w-5 text-white" strokeWidth={2} />
+                      </div>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border capitalize ${config.badge}`}>
+                        {board.type}
+                      </span>
+                    </div>
 
-        <div className="relative max-w-lg text-center px-8 z-10">
-          <h3 className="text-4xl font-extrabold text-gray-900 tracking-tight text-balance leading-tight">
-            Collaborate seamlessly <br /><span className="text-blue-600">in one place.</span>
-          </h3>
-          <p className="mt-6 text-lg text-gray-600 text-balance leading-relaxed">
-            Huddle Up simplifies scheduling, planning, and alignment, bringing everyone onto the same page effortlessly.
-          </p>
+                    {/* Name */}
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
+                      {board.name}
+                    </h3>
 
-          <div className="mt-12 flex justify-center">
-            {/* Minimal Mockup Card */}
-            <div className="bg-white/70 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white rotate-[-3deg] transition-transform hover:rotate-[-1deg] duration-500">
-              <div className="w-80 h-40 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100"></div>
-                  <div className="space-y-2 flex-1">
-                    <div className="w-1/2 h-3 bg-gray-200 rounded-full"></div>
-                    <div className="w-1/3 h-2 bg-gray-100 rounded-full"></div>
+                    {/* Description */}
+                    {board.goal_description && (
+                      <p className="text-sm text-gray-500 mt-2 leading-relaxed line-clamp-2">
+                        {board.goal_description}
+                      </p>
+                    )}
+
+                    {/* Spacer */}
+                    <div className="flex-1 min-h-[12px]"></div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-4">
+                        {board.goal_target_amount != null && (
+                          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                            <Target className="h-3.5 w-3.5 text-gray-400" />
+                            <span className="font-semibold text-gray-700">${board.goal_target_amount.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-400 capitalize">{ub.role}</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-3 mt-auto">
-                  <div className="w-full h-8 bg-blue-50 rounded-lg"></div>
-                  <div className="w-4/5 h-8 bg-gray-50 rounded-lg"></div>
-                </div>
-              </div>
-            </div>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        )}
+      </main>
+    </div>
+  );
+}
 
-        {/* Diagonal cut overlay (optional stylistic touch) */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent pointer-events-none"></div>
-      </div>
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white border border-gray-200/80 rounded-xl px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-xs font-medium text-gray-400 mt-1 uppercase tracking-wide">{label}</p>
     </div>
   );
 }
