@@ -29,6 +29,7 @@ import {
     SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { EventSuggestions } from "@/components/event-suggestions";
 
 interface Board {
     id: string;
@@ -399,6 +400,9 @@ export default function BoardDetailPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Smart spending suggestions */}
+                            <EventSuggestions eventId={selectedEvent.id} />
                         </>
                     )}
                 </SheetContent>
