@@ -441,7 +441,7 @@ export default function CoachPage() {
 
       {/* Controls — ABOVE the orb */}
       <div className="relative z-50 mb-4 flex flex-col items-center gap-3">
-        <div className="flex items-center mt-16 gap-3">
+        <div className="flex items-center mt-28 gap-3">
           {/* Mic button */}
           <button
             onClick={isListening ? stopListening : startListening}
@@ -484,12 +484,12 @@ export default function CoachPage() {
       </div>
 
       {/* Status — below the orb */}
-      <div className="relative z-50 mt-4 flex flex-col items-center">
+      <div className="relative z-50 flex flex-col items-center">
         <ListeningStatus mode={status} audioData={audioData} />
       </div>
 
       {/* Canvas orb */}
-      <div className="relative flex aspect-square w-full max-w-[520px] items-center justify-center">
+      <div className="relative -mt-16 flex aspect-square w-full max-w-[520px] items-center justify-center">
         <VoiceOrb audioData={audioData} mode={orbMode} />
       </div>
 
