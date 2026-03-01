@@ -107,10 +107,7 @@ export default function Home() {
       if (!error && data) setBoards(data as unknown as UserBoard[]);
       setLoading(false);
     };
-
     fetchData();
-    const id = setInterval(fetchData, 500);
-    return () => clearInterval(id);
   }, []);
 
   const goalBoards = boards.filter(b => b.boards.have_board_goals).length;
