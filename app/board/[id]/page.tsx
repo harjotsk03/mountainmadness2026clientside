@@ -4,84 +4,84 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import {
-    ArrowLeft,
-    MapPin,
-    Calendar,
-    Clock,
-    ShoppingBag,
-    Briefcase,
-    Heart,
-    Users,
-    Wallet,
-    LayoutDashboard,
-    TrendingUp,
-    ChevronRight,
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Clock,
+  ShoppingBag,
+  Briefcase,
+  Heart,
+  Users,
+  Wallet,
+  LayoutDashboard,
+  TrendingUp,
+  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import BoardEvent from "@/components/boardEvent";
 
 interface Board {
-    id: string;
-    name: string;
-    type: string;
-    goal_description: string | null;
-    goal_target_amount: number | null;
+  id: string;
+  name: string;
+  type: string;
+  goal_description: string | null;
+  goal_target_amount: number | null;
 }
 
 interface EventRow {
-    id: string;
-    title: string;
-    description: string | null;
-    start_time: string;
-    end_time: string | null;
-    location: string | null;
-    event_type: string | null;
-    totalSpent?: number;
+  id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string | null;
+  location: string | null;
+  event_type: string | null;
+  totalSpent?: number;
 }
 
 interface Transaction {
-    id: string;
-    amount: number;
-    category: string | null;
-    merchant: string | null;
-    transaction_date: string;
+  id: string;
+  amount: number;
+  category: string | null;
+  merchant: string | null;
+  transaction_date: string;
 }
 
 const TYPE_META: Record<string, { icon: typeof Briefcase; bg: string; text: string; dot: string }> = {
-    work: { icon: Briefcase, bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500" },
-    personal: { icon: Wallet, bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
-    friend: { icon: Users, bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500" },
-    spouse: { icon: Heart, bg: "bg-rose-50", text: "text-rose-500", dot: "bg-rose-500" },
+  work: { icon: Briefcase, bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500" },
+  personal: { icon: Wallet, bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
+  friend: { icon: Users, bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500" },
+  spouse: { icon: Heart, bg: "bg-rose-50", text: "text-rose-500", dot: "bg-rose-500" },
 };
 const FALLBACK = { icon: LayoutDashboard, bg: "bg-zinc-100", text: "text-zinc-500", dot: "bg-zinc-400" };
 function typeMeta(type: string) { return TYPE_META[type?.toLowerCase()] ?? FALLBACK; }
 
 const TX_DOTS: Record<string, string> = {
-    food: "bg-orange-400", dining: "bg-orange-400", drink: "bg-amber-400",
-    coffee: "bg-amber-600", transportation: "bg-sky-400", rideshare: "bg-sky-400",
-    entertainment: "bg-pink-400", shopping: "bg-violet-400", leisure: "bg-teal-400",
+  food: "bg-orange-400", dining: "bg-orange-400", drink: "bg-amber-400",
+  coffee: "bg-amber-600", transportation: "bg-sky-400", rideshare: "bg-sky-400",
+  entertainment: "bg-pink-400", shopping: "bg-violet-400", leisure: "bg-teal-400",
 };
 function txDot(cat: string | null) { return cat ? (TX_DOTS[cat.toLowerCase()] ?? "bg-zinc-300") : "bg-zinc-300"; }
 
 function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 function fmtMoney(n: number) {
-    return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function BoardDetailPage() {
@@ -138,13 +138,27 @@ export default function BoardDetailPage() {
     };
 
     fetch();
-    const id = setInterval(fetch, 500);
-    return () => clearInterval(id);
   }, [boardId]);
 
+  /* ── Fetch transactions when sheet opens ── */
   useEffect(() => {
-    //
-  }, []);
+    if (!selectedEvent || !sheetOpen) return;
+    let cancelled = false;
+    const fetchTx = async () => {
+      setLoadingTx(true);
+      const { data } = await supabase
+        .from("transactions")
+        .select("id, amount, category, merchant, transaction_date")
+        .eq("event_id", selectedEvent.id)
+        .order("transaction_date", { ascending: true });
+      if (!cancelled) {
+        setTransactions(data || []);
+        setLoadingTx(false);
+      }
+    };
+    fetchTx();
+    return () => { cancelled = true; };
+  }, [selectedEvent, sheetOpen]);
 
   const meta = board ? typeMeta(board.type) : FALLBACK;
   const BoardIcon = meta.icon;
@@ -283,36 +297,36 @@ export default function BoardDetailPage() {
 }
 
 function FeedSkeleton() {
-    return (
-        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
-            {[1, 2, 3, 4].map(i => (
-                <div key={i} className="flex items-center gap-4 px-5 py-4">
-                    <Skeleton className="h-3 w-5 rounded" />
-                    <div className="w-1 h-1 rounded-full bg-zinc-200" />
-                    <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-56" />
-                    </div>
-                    <Skeleton className="h-4 w-14" />
-                </div>
-            ))}
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <Skeleton className="h-3 w-5 rounded" />
+          <div className="w-1 h-1 rounded-full bg-zinc-200" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-56" />
+          </div>
+          <Skeleton className="h-4 w-14" />
         </div>
-    );
+      ))}
+    </div>
+  );
 }
 
 function TxSkeleton() {
-    return (
-        <div className="space-y-6">
-            {[1, 2, 3].map(i => (
-                <div key={i} className="flex gap-4">
-                    <Skeleton className="w-3 h-3 rounded-full mt-0.5" />
-                    <div className="flex-1 space-y-1.5">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-5 w-16 rounded-full" />
-                    </div>
-                    <Skeleton className="h-4 w-12" />
-                </div>
-            ))}
+  return (
+    <div className="space-y-6">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="flex gap-4">
+          <Skeleton className="w-3 h-3 rounded-full mt-0.5" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-12" />
         </div>
-    );
+      ))}
+    </div>
+  );
 }
