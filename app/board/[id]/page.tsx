@@ -29,6 +29,7 @@ import {
     SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { EventSuggestions } from "@/components/event-suggestions";
 
 interface Board {
     id: string;
@@ -520,19 +521,15 @@ export default function BoardDetailPage() {
                                 {fmtMoney(Number(tx.amount))}
                               </p>
                             </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-    </div>
-  );
+
+                            {/* Smart spending suggestions */}
+                            <EventSuggestions eventId={selectedEvent.id} />
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
 }
 
 function FeedSkeleton() {
