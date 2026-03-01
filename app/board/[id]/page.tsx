@@ -8,16 +8,27 @@ import {
     MapPin,
     Calendar,
     Clock,
-    X,
     ShoppingBag,
-    Tag,
-    Store,
     Briefcase,
     Heart,
     Users,
     Wallet,
     LayoutDashboard,
+    TrendingUp,
+    ChevronRight,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface Board {
     id: string;
@@ -46,363 +57,387 @@ interface Transaction {
     transaction_date: string;
 }
 
-const typeConfig: Record<string, { icon: typeof Briefcase; accent: string; bg: string; text: string }> = {
-    work: { icon: Briefcase, accent: "bg-[#1e3a5f]", bg: "bg-[#1e3a5f]/[0.07]", text: "text-[#1e3a5f]" },
-    personal: { icon: Wallet, accent: "bg-[#5b4a8a]", bg: "bg-[#5b4a8a]/[0.07]", text: "text-[#5b4a8a]" },
-    friend: { icon: Users, accent: "bg-[#4a7c6f]", bg: "bg-[#4a7c6f]/[0.07]", text: "text-[#4a7c6f]" },
-    spouse: { icon: Heart, accent: "bg-[#8b4a5a]", bg: "bg-[#8b4a5a]/[0.07]", text: "text-[#8b4a5a]" },
+const TYPE_META: Record<string, { icon: typeof Briefcase; bg: string; text: string; dot: string }> = {
+    work: { icon: Briefcase, bg: "bg-blue-50", text: "text-blue-600", dot: "bg-blue-500" },
+    personal: { icon: Wallet, bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
+    friend: { icon: Users, bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500" },
+    spouse: { icon: Heart, bg: "bg-rose-50", text: "text-rose-500", dot: "bg-rose-500" },
 };
-const fallbackConfig = { icon: LayoutDashboard, accent: "bg-zinc-600", bg: "bg-zinc-600/[0.07]", text: "text-zinc-600" };
+const FALLBACK = { icon: LayoutDashboard, bg: "bg-zinc-100", text: "text-zinc-500", dot: "bg-zinc-400" };
+function typeMeta(type: string) { return TYPE_META[type?.toLowerCase()] ?? FALLBACK; }
 
-function getTypeConfig(type: string) {
-    return typeConfig[type?.toLowerCase()] || fallbackConfig;
-}
-
-function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-}
-
-function formatTime(iso: string) {
-    return new Date(iso).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-    });
-}
-
-const categoryStyles: Record<string, string> = {
-    food: "bg-[#c2703e]/10 text-[#c2703e]",
-    dining: "bg-[#c2703e]/10 text-[#c2703e]",
-    drink: "bg-[#b08830]/10 text-[#b08830]",
-    transportation: "bg-[#3a6f8f]/10 text-[#3a6f8f]",
-    rideshare: "bg-[#3a6f8f]/10 text-[#3a6f8f]",
-    entertainment: "bg-[#8b4a5a]/10 text-[#8b4a5a]",
-    shopping: "bg-[#5b4a8a]/10 text-[#5b4a8a]",
-    leisure: "bg-[#4a7c6f]/10 text-[#4a7c6f]",
-    coffee: "bg-[#7a5c3e]/10 text-[#7a5c3e]",
+const TX_DOTS: Record<string, string> = {
+    food: "bg-orange-400", dining: "bg-orange-400", drink: "bg-amber-400",
+    coffee: "bg-amber-600", transportation: "bg-sky-400", rideshare: "bg-sky-400",
+    entertainment: "bg-pink-400", shopping: "bg-violet-400", leisure: "bg-teal-400",
 };
+function txDot(cat: string | null) { return cat ? (TX_DOTS[cat.toLowerCase()] ?? "bg-zinc-300") : "bg-zinc-300"; }
 
-function getCategoryStyle(cat: string | null) {
-    if (!cat) return "bg-zinc-100 text-zinc-500";
-    return categoryStyles[cat.toLowerCase()] || "bg-zinc-100 text-zinc-500";
+function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+function fmtMoney(n: number) {
+    return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function BoardDetailPage() {
-    const params = useParams();
+    const { id: boardId } = useParams<{ id: string }>();
     const router = useRouter();
-    const boardId = params.id as string;
 
     const [board, setBoard] = useState<Board | null>(null);
     const [events, setEvents] = useState<EventRow[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [sheetOpen, setSheetOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loadingTx, setLoadingTx] = useState(false);
 
+    /* ── Fetch board + events ── */
     useEffect(() => {
-        const fetchBoardData = async () => {
+        const fetch = async () => {
             const { data: boardData } = await supabase
                 .from("boards")
                 .select("id, name, type, goal_description, goal_target_amount")
                 .eq("id", boardId)
                 .single();
-
             if (boardData) setBoard(boardData);
 
-            const { data: eventRows } = await supabase
+            const { data: evRows } = await supabase
                 .from("events")
                 .select("id, title, description, start_time, end_time, location, event_type")
                 .eq("board_id", boardId)
                 .order("start_time", { ascending: false });
 
-            if (eventRows && eventRows.length > 0) {
-                const eventIds = eventRows.map((e) => e.id);
+            if (evRows?.length) {
+                const ids = evRows.map(e => e.id);
                 const { data: txData } = await supabase
                     .from("transactions")
                     .select("event_id, amount")
-                    .in("event_id", eventIds);
+                    .in("event_id", ids);
 
                 const totals: Record<string, number> = {};
-                if (txData) {
-                    txData.forEach((tx) => {
-                        if (tx.event_id) {
-                            totals[tx.event_id] = (totals[tx.event_id] || 0) + Number(tx.amount);
-                        }
-                    });
-                }
-
-                setEvents(eventRows.map((ev) => ({ ...ev, totalSpent: totals[ev.id] || 0 })));
+                txData?.forEach(tx => {
+                    if (tx.event_id) totals[tx.event_id] = (totals[tx.event_id] || 0) + Number(tx.amount);
+                });
+                setEvents(evRows.map(ev => ({ ...ev, totalSpent: totals[ev.id] || 0 })));
             } else {
                 setEvents([]);
             }
-
             setLoading(false);
         };
 
-        fetchBoardData();
-        const intervalId = setInterval(fetchBoardData, 500);
-        return () => clearInterval(intervalId);
+        fetch();
+        const id = setInterval(fetch, 500);
+        return () => clearInterval(id);
     }, [boardId]);
 
-    const openEventTransactions = (event: EventRow) => {
-        setSelectedEvent(event);
-        setLoadingTx(true);
-    };
-
+    /* ── Fetch transactions when sheet opens ── */
     useEffect(() => {
-        if (!selectedEvent) return;
-
-        const fetchTransactions = async () => {
+        if (!selectedEvent || !sheetOpen) return;
+        const fetch = async () => {
+            setLoadingTx(true);
             const { data } = await supabase
                 .from("transactions")
                 .select("id, amount, category, merchant, transaction_date")
                 .eq("event_id", selectedEvent.id)
-                .order("amount", { ascending: false });
-
+                .order("transaction_date", { ascending: true });
             setTransactions(data || []);
             setLoadingTx(false);
         };
+        fetch();
+        const id = setInterval(fetch, 500);
+        return () => clearInterval(id);
+    }, [selectedEvent, sheetOpen]);
 
-        fetchTransactions();
-        const intervalId = setInterval(fetchTransactions, 500);
-        return () => clearInterval(intervalId);
-    }, [selectedEvent]);
-
-    const config = board ? getTypeConfig(board.type) : fallbackConfig;
-    const BoardIcon = config.icon;
-    const totalSpent = events.reduce((sum, ev) => sum + (ev.totalSpent || 0), 0);
+    const meta = board ? typeMeta(board.type) : FALLBACK;
+    const BoardIcon = meta.icon;
+    const totalSpent = events.reduce((s, ev) => s + (ev.totalSpent || 0), 0);
+    const goalPct = board?.goal_target_amount
+        ? Math.min(100, Math.round((totalSpent / board.goal_target_amount) * 100))
+        : null;
 
     return (
-        <div className="min-h-screen bg-[#FAFAFA]">
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-md border-b border-black/[0.06] sticky top-0 z-20">
-                <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center gap-4">
-                    <button
-                        onClick={() => router.push("/")}
-                        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-900 transition-colors py-2 px-3 -ml-3 rounded-lg hover:bg-zinc-100 active:scale-[0.97]"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="hidden sm:inline font-medium">Boards</span>
-                    </button>
-                    <div className="h-5 w-px bg-zinc-200/60"></div>
-                    <div className="flex items-center gap-2.5">
-                        <div className={`h-7 w-7 rounded-lg ${config.bg} flex items-center justify-center`}>
-                            <BoardIcon className={`h-3.5 w-3.5 ${config.text}`} strokeWidth={1.8} />
+        <div className="min-h-full flex flex-col">
+            {/* ── White top bar with board info + summary ── */}
+            <div className="bg-white border-b border-zinc-200 px-8 py-6">
+                {/* Back link */}
+                <button
+                    onClick={() => router.push("/")}
+                    className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-600 text-xs font-medium mb-5 transition-colors group"
+                >
+                    <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                    All Boards
+                </button>
+
+                {/* Board name row + summary stats */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    {/* Left — board identity */}
+                    <div className="flex items-center gap-4">
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", meta.bg)}>
+                            <BoardIcon className={cn("h-6 w-6", meta.text)} strokeWidth={1.5} />
                         </div>
-                        <span className="text-[15px] font-semibold text-zinc-900 truncate max-w-[200px] sm:max-w-none tracking-tight">
-                            {board?.name || "Loading…"}
-                        </span>
-                    </div>
-                </div>
-            </header>
-
-            <main className="max-w-6xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-32 gap-4">
-                        <div className="h-8 w-8 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-                        <p className="text-sm text-zinc-400">Loading board…</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* Board header */}
-                        {board && (
-                            <div className="mb-12">
-                                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
-                                    {board.name}
-                                </h1>
-                                {board.goal_description && (
-                                    <p className="mt-2 text-[15px] text-zinc-400 max-w-2xl leading-relaxed">
-                                        {board.goal_description}
-                                    </p>
-                                )}
-
-                                {/* Stats */}
-                                <div className="flex flex-wrap gap-3 mt-8">
-                                    <div className="bg-white ring-1 ring-black/[0.06] rounded-xl px-5 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                                        <p className="text-xl font-semibold text-zinc-900 tracking-tight tabular-nums">{events.length}</p>
-                                        <p className="text-[11px] font-medium text-zinc-400 mt-1 uppercase tracking-wider">Events</p>
-                                    </div>
-                                    <div className="bg-white ring-1 ring-black/[0.06] rounded-xl px-5 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                                        <p className="text-xl font-semibold text-zinc-900 tracking-tight tabular-nums">
-                                            ${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </p>
-                                        <p className="text-[11px] font-medium text-zinc-400 mt-1 uppercase tracking-wider">Total Spent</p>
-                                    </div>
-                                    {board.goal_target_amount != null && (
-                                        <div className="bg-white ring-1 ring-black/[0.06] rounded-xl px-5 py-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                                            <p className="text-xl font-semibold text-zinc-900 tracking-tight tabular-nums">${board.goal_target_amount.toLocaleString()}</p>
-                                            <p className="text-[11px] font-medium text-zinc-400 mt-1 uppercase tracking-wider">Goal</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Events */}
-                        {events.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-24 px-4">
-                                <div className="bg-white ring-1 ring-black/[0.06] rounded-2xl p-14 text-center max-w-sm w-full flex flex-col items-center gap-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                                    <div className="w-14 h-14 bg-zinc-100 rounded-xl flex items-center justify-center">
-                                        <Calendar className="h-6 w-6 text-zinc-300" strokeWidth={1.5} />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-zinc-900">No events yet</h3>
-                                    <p className="text-sm text-zinc-400 leading-relaxed">
-                                        Events from your Google Calendar will appear here once synced.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div>
-                                <h2 className="text-[13px] font-semibold text-zinc-400 uppercase tracking-wider mb-4">Events</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {events.map((event) => (
-                                        <button
-                                            key={event.id}
-                                            onClick={() => openEventTransactions(event)}
-                                            className="group bg-white ring-1 ring-black/[0.06] rounded-2xl p-6 sm:p-7 text-left shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:ring-black/[0.12] hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] active:scale-[0.98] transition-all duration-200 cursor-pointer flex flex-col gap-3"
-                                        >
-                                            {/* Title + amount */}
-                                            <div className="flex items-start justify-between gap-3">
-                                                <h3 className="text-[15px] font-semibold text-zinc-900 leading-snug flex-1 tracking-tight">
-                                                    {event.title}
-                                                </h3>
-                                                {event.totalSpent != null && event.totalSpent > 0 && (
-                                                    <span className="text-sm font-semibold text-zinc-900 tabular-nums tracking-tight whitespace-nowrap">
-                                                        ${event.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {event.description && (
-                                                <p className="text-[13px] text-zinc-400 line-clamp-2 leading-relaxed">
-                                                    {event.description}
-                                                </p>
-                                            )}
-
-                                            {/* Meta */}
-                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-zinc-400 mt-auto pt-3">
-                                                <span className="flex items-center gap-1.5">
-                                                    <Calendar className="h-3 w-3 text-zinc-300" />
-                                                    {formatDate(event.start_time)}
-                                                </span>
-                                                {event.end_time && (
-                                                    <span className="flex items-center gap-1.5">
-                                                        <Clock className="h-3 w-3 text-zinc-300" />
-                                                        {formatTime(event.start_time)} – {formatTime(event.end_time)}
-                                                    </span>
-                                                )}
-                                                {event.location && (
-                                                    <span className="flex items-center gap-1.5">
-                                                        <MapPin className="h-3 w-3 text-zinc-300" />
-                                                        {event.location}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
-            </main>
-
-            {/* Transaction Modal */}
-            {selectedEvent && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                    <div
-                        className="absolute inset-0 bg-zinc-900/20 backdrop-blur-md"
-                        onClick={() => setSelectedEvent(null)}
-                    ></div>
-                    <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-[0_24px_64px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] z-10 max-h-[85vh] flex flex-col overflow-hidden">
-                        {/* Header */}
-                        <div className="flex items-start justify-between p-6 pb-5 border-b border-zinc-100">
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h3 className="text-lg font-semibold text-zinc-900 truncate tracking-tight">
-                                    {selectedEvent.title}
-                                </h3>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[12px] text-zinc-400">
-                                    <span className="flex items-center gap-1">
-                                        <Calendar className="h-3 w-3 text-zinc-300" />
-                                        {formatDate(selectedEvent.start_time)}
-                                    </span>
-                                    {selectedEvent.location && (
-                                        <span className="flex items-center gap-1">
-                                            <MapPin className="h-3 w-3 text-zinc-300" />
-                                            {selectedEvent.location}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setSelectedEvent(null)}
-                                className="text-zinc-400 hover:text-zinc-600 transition-colors p-1.5 rounded-lg hover:bg-zinc-100 -mt-1 -mr-1"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        {/* Total */}
-                        {!loadingTx && transactions.length > 0 && (
-                            <div className="px-6 py-4 border-b border-zinc-100 bg-zinc-50/50">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-zinc-400">Total Spent</span>
-                                    <span className="text-xl font-semibold text-zinc-900 tracking-tight tabular-nums">
-                                        ${transactions.reduce((s, t) => s + Number(t.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Transaction List */}
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {loadingTx ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                                    <div className="h-7 w-7 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin"></div>
-                                    <p className="text-sm text-zinc-400">Loading…</p>
-                                </div>
-                            ) : transactions.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-14 gap-3">
-                                    <ShoppingBag className="h-8 w-8 text-zinc-200" strokeWidth={1.5} />
-                                    <p className="text-sm text-zinc-400">No transactions for this event.</p>
-                                </div>
+                        <div>
+                            {loading ? (
+                                <>
+                                    <Skeleton className="h-7 w-40 mb-1" />
+                                    <Skeleton className="h-4 w-64" />
+                                </>
                             ) : (
-                                <div className="space-y-2">
-                                    {transactions.map((tx) => (
-                                        <div
-                                            key={tx.id}
-                                            className="flex items-center gap-4 p-4 rounded-xl hover:bg-zinc-50 transition-colors duration-150"
-                                        >
-                                            <div className="w-9 h-9 bg-zinc-100 rounded-lg flex items-center justify-center shrink-0">
-                                                <Store className="h-4 w-4 text-zinc-400" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-zinc-900 truncate">
-                                                    {tx.merchant || "Unknown merchant"}
-                                                </p>
-                                                {tx.category && (
-                                                    <span className={`inline-flex items-center gap-1 mt-1 text-[11px] font-medium px-2 py-0.5 rounded-md capitalize ${getCategoryStyle(tx.category)}`}>
-                                                        <Tag className="h-2.5 w-2.5" />
-                                                        {tx.category}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm font-semibold text-zinc-900 whitespace-nowrap tabular-nums tracking-tight">
-                                                ${Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
+                                <>
+                                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tighter text-zinc-900 leading-none">
+                                        {board?.name}
+                                    </h1>
+                                    {board?.goal_description && (
+                                        <p className="text-zinc-400 text-sm mt-1 leading-relaxed">{board.goal_description}</p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
+
+                    {/* Right — inline summary stats */}
+                    <div className="flex items-center gap-3 flex-wrap shrink-0">
+                        {loading ? (
+                            <>
+                                <Skeleton className="h-10 w-24 rounded-xl" />
+                                <Skeleton className="h-10 w-32 rounded-xl" />
+                            </>
+                        ) : (
+                            <>
+                                {/* Events pill */}
+                                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
+                                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                                    <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">{events.length}</span>
+                                    <span className="text-zinc-500 text-xs font-medium">events</span>
+                                </div>
+
+                                {/* Separator */}
+                                <Separator orientation="vertical" className="h-6 bg-zinc-200 hidden lg:block" />
+
+                                {/* Total pill */}
+                                <div className="flex items-center gap-2 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
+                                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">{fmtMoney(totalSpent)}</span>
+                                    <span className="text-zinc-500 text-xs font-medium">spent</span>
+                                </div>
+
+                                {/* Goal pill */}
+                                {board?.goal_target_amount != null && goalPct !== null && (
+                                    <>
+                                        <Separator orientation="vertical" className="h-6 bg-zinc-200 hidden lg:block" />
+                                        <div className="flex items-center gap-3 bg-zinc-100 border border-zinc-200 rounded-xl px-4 py-2.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-zinc-900 font-bold text-base tabular-nums tracking-tight">{goalPct}%</span>
+                                                <span className="text-zinc-500 text-xs font-medium">of {fmtMoney(board.goal_target_amount)}</span>
+                                            </div>
+                                            <Progress value={goalPct} className="h-1.5 w-16 bg-zinc-200 [&>div]:bg-indigo-500" />
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Type badge */}
+                                {board && (
+                                    <Badge className={cn("text-[10px] capitalize border-0 font-semibold px-2.5 py-1", meta.bg, meta.text)}>
+                                        {board.type}
+                                    </Badge>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
-            )}
+            </div>
+
+            {/* ── Full-width event feed ── */}
+            <div className="flex-1 px-8 py-7">
+                <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Events</h2>
+                    {!loading && (
+                        <Badge variant="secondary" className="text-[10px] tabular-nums bg-white border-zinc-200">
+                            {events.length} total
+                        </Badge>
+                    )}
+                </div>
+
+                {loading ? (
+                    <FeedSkeleton />
+                ) : events.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-zinc-400" strokeWidth={1.5} />
+                        </div>
+                        <p className="text-sm text-zinc-500">No events yet.</p>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+                        {events.map((event, idx) => (
+                            <button
+                                key={event.id}
+                                onClick={() => { setSelectedEvent(event); setSheetOpen(true); }}
+                                className="w-full text-left flex items-center gap-4 px-5 py-4 hover:bg-zinc-50 active:bg-zinc-100 transition-colors group"
+                            >
+                                {/* Index */}
+                                <span className="tabular-nums text-[11px] font-semibold text-zinc-300 w-5 shrink-0 text-right">
+                                    {String(idx + 1).padStart(2, "0")}
+                                </span>
+                                <div className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-zinc-900 truncate group-hover:text-indigo-600 transition-colors">
+                                        {event.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                                            <Calendar className="h-2.5 w-2.5" />{fmtDate(event.start_time)}
+                                        </span>
+                                        {event.end_time && (
+                                            <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                                                <Clock className="h-2.5 w-2.5" />{fmtTime(event.start_time)}–{fmtTime(event.end_time)}
+                                            </span>
+                                        )}
+                                        {event.location && (
+                                            <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                                                <MapPin className="h-2.5 w-2.5" />{event.location}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Amount + arrow */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {event.totalSpent != null && event.totalSpent > 0 && (
+                                        <span className="text-sm font-bold text-zinc-900 tabular-nums tracking-tight">
+                                            {fmtMoney(event.totalSpent)}
+                                        </span>
+                                    )}
+                                    <ChevronRight className="h-4 w-4 text-zinc-200 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Transaction Sheet ── */}
+            <Sheet open={sheetOpen} onOpenChange={open => { setSheetOpen(open); if (!open) setSelectedEvent(null); }}>
+                <SheetContent
+                    side="right"
+                    className="w-full sm:max-w-md overflow-y-auto bg-white border-l border-zinc-200"
+                >
+                    {selectedEvent && (
+                        <>
+                            <SheetHeader className="pb-4 border-b border-zinc-100">
+                                <SheetTitle className="text-base font-bold tracking-tight text-zinc-900">
+                                    {selectedEvent.title}
+                                </SheetTitle>
+                                <SheetDescription className="flex flex-wrap items-center gap-2 mt-1">
+                                    <Badge variant="outline" className="text-[10px] font-normal gap-1 border-zinc-200">
+                                        <Calendar className="h-2.5 w-2.5" />{fmtDate(selectedEvent.start_time)}
+                                    </Badge>
+                                    {selectedEvent.location && (
+                                        <Badge variant="outline" className="text-[10px] font-normal gap-1 border-zinc-200">
+                                            <MapPin className="h-2.5 w-2.5" />{selectedEvent.location}
+                                        </Badge>
+                                    )}
+                                </SheetDescription>
+                            </SheetHeader>
+
+                            {/* Total */}
+                            {!loadingTx && transactions.length > 0 && (
+                                <div className="px-4 py-5 bg-zinc-50 border-b border-zinc-100">
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Total Spent</p>
+                                    <p className="text-3xl font-bold tracking-tighter text-zinc-900 tabular-nums">
+                                        {fmtMoney(transactions.reduce((s, t) => s + Number(t.amount), 0))}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Transaction timeline */}
+                            <div className="px-4 py-6">
+                                {loadingTx ? (
+                                    <TxSkeleton />
+                                ) : transactions.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                        <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center">
+                                            <ShoppingBag className="h-5 w-5 text-zinc-400" strokeWidth={1.5} />
+                                        </div>
+                                        <p className="text-sm text-zinc-400">No transactions for this event.</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <div className="absolute left-[5px] top-2 bottom-2 w-px bg-zinc-200" />
+                                        <div className="space-y-0">
+                                            {transactions.map(tx => (
+                                                <div key={tx.id} className="relative flex gap-4 pb-6 last:pb-0">
+                                                    <div className="relative z-10 pt-0.5">
+                                                        <div className={cn("w-3 h-3 rounded-full ring-2 ring-white", txDot(tx.category))} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-semibold text-zinc-900 truncate">
+                                                                    {tx.merchant || "Unknown merchant"}
+                                                                </p>
+                                                                {tx.category && (
+                                                                    <Badge variant="secondary" className="text-[10px] capitalize mt-1 bg-zinc-100 text-zinc-500 border-0">
+                                                                        {tx.category}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-sm font-bold text-zinc-900 tabular-nums tracking-tight whitespace-nowrap shrink-0">
+                                                                {fmtMoney(Number(tx.amount))}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
+}
+
+function FeedSkeleton() {
+    return (
+        <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden divide-y divide-zinc-100">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="flex items-center gap-4 px-5 py-4">
+                    <Skeleton className="h-3 w-5 rounded" />
+                    <div className="w-1 h-1 rounded-full bg-zinc-200" />
+                    <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-56" />
+                    </div>
+                    <Skeleton className="h-4 w-14" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function TxSkeleton() {
+    return (
+        <div className="space-y-6">
+            {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-4">
+                    <Skeleton className="w-3 h-3 rounded-full mt-0.5" />
+                    <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                    <Skeleton className="h-4 w-12" />
+                </div>
+            ))}
         </div>
     );
 }
