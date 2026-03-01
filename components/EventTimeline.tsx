@@ -46,31 +46,31 @@ const TYPE_STYLE: Record<
 > = {
   concert: {
     bg: "bg-rose-50",
-    border: "border-rose-200",
+    border: "border-rose-500",
     text: "text-rose-700",
     dot: "bg-rose-500",
   },
   dining: {
     bg: "bg-amber-50",
-    border: "border-amber-200",
+    border: "border-amber-500",
     text: "text-amber-700",
     dot: "bg-amber-500",
   },
   coffee: {
     bg: "bg-emerald-50",
-    border: "border-emerald-200",
+    border: "border-emerald-500",
     text: "text-emerald-700",
     dot: "bg-emerald-500",
   },
   movie: {
     bg: "bg-violet-50",
-    border: "border-violet-200",
+    border: "border-violet-500",
     text: "text-violet-700",
     dot: "bg-violet-500",
   },
   entertainment: {
     bg: "bg-sky-50",
-    border: "border-sky-200",
+    border: "border-sky-500",
     text: "text-sky-700",
     dot: "bg-sky-500",
   },
@@ -195,15 +195,40 @@ function SpendingGraph({
     });
   }, [points, maxVal]);
 
-  const past = allCoords.filter((c) => c.x <= todayX);
-  const future = useMemo(() => {
-    const f = allCoords.filter((c) => c.x > todayX);
-    if (past.length > 0 && f.length > 0) {
-      const bridge = past[past.length - 1];
-      return [{ ...bridge }, ...f];
+  // Interpolate a point at exactly todayX so past/future lines meet at the TODAY marker
+  const { past, future } = useMemo(() => {
+    const pastPts = allCoords.filter((c) => c.x <= todayX);
+    const futurePts = allCoords.filter((c) => c.x > todayX);
+
+    // If last past point isn't exactly at todayX, interpolate
+    if (pastPts.length > 0 && futurePts.length > 0) {
+      const lp = pastPts[pastPts.length - 1];
+      const ff = futurePts[0];
+      if (lp.x < todayX) {
+        const t = (todayX - lp.x) / (ff.x - lp.x);
+        const interpY = lp.y + t * (ff.y - lp.y);
+        const interpVal = lp.val + t * (ff.val - lp.val);
+        const bridgePt = {
+          x: todayX,
+          y: interpY,
+          val: interpVal,
+          isPast: true,
+          label: "Today",
+        };
+        return {
+          past: [...pastPts, bridgePt],
+          future: [{ ...bridgePt, isPast: false }, ...futurePts],
+        };
+      }
+      // lp.x === todayX — use it directly as bridge
+      return {
+        past: pastPts,
+        future: [{ ...lp, isPast: false }, ...futurePts],
+      };
     }
-    return f;
-  }, [allCoords, past]);
+
+    return { past: pastPts, future: futurePts };
+  }, [allCoords, todayX]);
 
   function smooth(pts: { x: number; y: number }[]) {
     if (pts.length < 2) return "";
@@ -457,15 +482,15 @@ function EventCard({
     <button
       onClick={() => onClick(event)}
       className={cn(
-        "text-left rounded-lg border px-3 py-2.5 shrink-0",
+        "text-left rounded-md border px-3 py-2.5 shrink-0",
         "transition-all duration-150 hover:scale-[1.03] hover:shadow-md cursor-pointer",
-        s.bg,
+        // s.bg,
         s.border,
       )}
       style={{ width: CARD_W }}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", s.dot)} />
+        {/* <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", s.dot)} /> */}
         <span
           className={cn(
             "text-[9px] font-semibold uppercase tracking-wider truncate",
@@ -475,17 +500,17 @@ function EventCard({
           {event.event_type}
         </span>
       </div>
-      <p className="text-[11px] font-semibold text-zinc-800 truncate leading-tight">
+      <p className="text-[11px] font-semibold text-black truncate leading-tight">
         {event.title}
       </p>
-      <p className="text-[10px] text-zinc-400 mt-0.5">
-        {shortTime(event.start_time)}
-      </p>
       {(event.totalSpent ?? 0) > 0 && (
-        <p className="text-[11px] font-bold text-zinc-700 mt-1 tabular-nums">
+        <p className="text-[11px] font-bold text-zinc-500 mt-1 tabular-nums">
           {fmtMoney(event.totalSpent!)}
         </p>
       )}
+      <p className="text-[10px] text-zinc-400 mt-0.5">
+        {shortTime(event.start_time)}
+      </p>
     </button>
   );
 }
@@ -686,7 +711,7 @@ export default function EventTimeline({
   }
 
   return (
-    <div className="flex-1 h-[82.5vh] flex flex-col overflow-hidden rounded-xl bg-[#fafafa]">
+    <div className="flex-1 h-[70vh] flex flex-col overflow-hidden rounded-xl bg-[#fafafa]">
       {/* ── Legend ── */}
       <div className="flex items-center justify-between px-6 pt-5 pb-3 shrink-0">
         <h2 className="text-sm font-bold text-zinc-700 tracking-tight">
@@ -822,11 +847,6 @@ export default function EventTimeline({
           </div>
         </div>
       </div>
-
-      {/* Detail */}
-      {selected && (
-        <EventDetail event={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }
